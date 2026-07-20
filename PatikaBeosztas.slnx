@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PatikaBeosztas.Domain/PatikaBeosztas.Domain.csproj" />
+    <Project Path="src/PatikaBeosztas.Application/PatikaBeosztas.Application.csproj" />
+    <Project Path="src/PatikaBeosztas.Contracts/PatikaBeosztas.Contracts.csproj" />
+    <Project Path="src/PatikaBeosztas.Infrastructure/PatikaBeosztas.Infrastructure.csproj" />
+    <Project Path="src/PatikaBeosztas.Api/PatikaBeosztas.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PatikaBeosztas.Domain.Tests/PatikaBeosztas.Domain.Tests.csproj" />
+    <Project Path="tests/PatikaBeosztas.Application.Tests/PatikaBeosztas.Application.Tests.csproj" />
+    <Project Path="tests/PatikaBeosztas.Api.IntegrationTests/PatikaBeosztas.Api.IntegrationTests.csproj" />
+    <Project Path="tests/PatikaBeosztas.Legacy.CharacterizationTests/PatikaBeosztas.Legacy.CharacterizationTests.csproj" />
+  </Folder>
+</Solution>
+

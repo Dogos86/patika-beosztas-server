@@ -1,0 +1,4 @@
+<Project>
+  <Import Project="../eng/Common.Build.props" />
+</Project>
+

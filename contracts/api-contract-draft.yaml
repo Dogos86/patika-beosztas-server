@@ -1,0 +1,560 @@
+openapi: 3.1.0
+info:
+  title: Patika Beosztás API – szerződésvázlat
+  version: 0.1.0-draft
+  description: >-
+    Közös frontend–backend szerződésvázlat. Nem teljes implementáció és nem végleges.
+    A backend OpenAPI dokumentuma lesz a későbbi hiteles forrás.
+servers:
+  - url: /api
+security:
+  - cookieAuth: []
+tags:
+  - name: Auth
+  - name: Me
+  - name: LeaveRequests
+  - name: Schedules
+  - name: Employees
+  - name: Locations
+  - name: Coverage
+  - name: AiAssistant
+paths:
+  /auth/session:
+    get:
+      tags: [Auth]
+      summary: Aktuális bejelentkezési munkamenet
+      responses:
+        '200':
+          description: Bejelentkezett felhasználó
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionDto'
+        '401':
+          description: Nincs bejelentkezve
+  /me/schedule:
+    get:
+      tags: [Me]
+      summary: Saját beosztás lekérése
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Saját műszakok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ShiftDto' }
+  /me/leave-requests:
+    get:
+      tags: [LeaveRequests]
+      summary: Saját kérelmek listázása
+      responses:
+        '200':
+          description: Kérelmek
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/LeaveRequestDto' }
+    post:
+      tags: [LeaveRequests]
+      summary: Saját kérelem vagy betegállomány-bejelentés létrehozása
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOwnLeaveRequest' }
+      responses:
+        '201':
+          description: Létrehozva
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeaveRequestDto' }
+        '400': { description: Hibás kérés }
+        '409': { description: Ütközés vagy konkurens módosítás }
+  /me/leave-requests/{id}/withdraw:
+    post:
+      tags: [LeaveRequests]
+      summary: Saját függő kérelem visszavonása
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204': { description: Visszavonva }
+        '403': { description: Nincs jogosultság }
+        '409': { description: Már nem vonható vissza }
+  /admin/leave-requests:
+    get:
+      tags: [LeaveRequests]
+      summary: Admin kérelmek listázása
+      parameters:
+        - in: query
+          name: status
+          schema: { $ref: '#/components/schemas/LeaveRequestStatus' }
+      responses:
+        '200':
+          description: Kérelmek
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/LeaveRequestDto' }
+    post:
+      tags: [LeaveRequests]
+      summary: Kérelem vagy távollét rögzítése más dolgozó nevében
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateLeaveForEmployee' }
+      responses:
+        '201':
+          description: Létrehozva
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeaveRequestDto' }
+  /admin/leave-requests/{id}/decision:
+    post:
+      tags: [LeaveRequests]
+      summary: Kérelem jóváhagyása vagy elutasítása
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LeaveDecisionRequest' }
+      responses:
+        '200':
+          description: Döntés rögzítve
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeaveRequestDto' }
+        '403': { description: Nincs jogosultság }
+        '409': { description: Státusz vagy verzióütközés }
+  /schedules:
+    get:
+      tags: [Schedules]
+      summary: Beosztási időszakok listázása
+      responses:
+        '200':
+          description: Beosztások
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ScheduleDto' }
+    post:
+      tags: [Schedules]
+      summary: Új beosztási időszak létrehozása
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, periodStart, periodEnd]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+                periodStart: { type: string, format: date }
+                periodEnd: { type: string, format: date }
+      responses:
+        '201':
+          description: Létrehozva
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScheduleDto' }
+  /schedules/{scheduleId}/shifts:
+    post:
+      tags: [Schedules]
+      summary: Műszak hozzáadása
+      parameters:
+        - in: path
+          name: scheduleId
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpsertShiftRequest' }
+      responses:
+        '201':
+          description: Létrehozva
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShiftDto' }
+        '422':
+          description: Üzleti szabályhiba
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValidationProblemDto' }
+  /schedules/{scheduleId}/validate:
+    post:
+      tags: [Schedules]
+      summary: Beosztás ellenőrzése
+      parameters:
+        - in: path
+          name: scheduleId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Ellenőrzési eredmény
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ScheduleIssueDto' }
+  /schedules/{scheduleId}/approve:
+    post:
+      tags: [Schedules]
+      summary: Beosztás jóváhagyása
+      parameters:
+        - in: path
+          name: scheduleId
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Jóváhagyva
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScheduleDto' }
+        '422':
+          description: Blokkoló szabályok miatt nem hagyható jóvá
+  /employees:
+    get:
+      tags: [Employees]
+      summary: Dolgozók listázása adminnak/beosztáskészítőnek
+      responses:
+        '200':
+          description: Dolgozók
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/EmployeeDto' }
+  /locations:
+    get:
+      tags: [Locations]
+      summary: Telephelyek listázása
+      responses:
+        '200':
+          description: Telephelyek
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/LocationDto' }
+  /coverage-rules:
+    get:
+      tags: [Coverage]
+      summary: Lefedettségi szabályok listázása
+      responses:
+        '200':
+          description: Szabályok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/CoverageRuleDto' }
+  /ai/interpret:
+    post:
+      tags: [AiAssistant]
+      summary: Gépelt vagy átírt utasítás értelmezése; csak előnézetet készít
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text, clientTimeZone]
+              properties:
+                text: { type: string, minLength: 1, maxLength: 10000 }
+                clientTimeZone: { type: string, const: Europe/Budapest }
+                contextScheduleId: { type: [string, 'null'], format: uuid }
+      responses:
+        '200':
+          description: Értelmezési előnézet
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiCommandPreviewDto' }
+  /ai/previews/{previewId}/execute:
+    post:
+      tags: [AiAssistant]
+      summary: Korábban validált AI-előnézet explicit végrehajtása
+      parameters:
+        - in: path
+          name: previewId
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmationToken]
+              properties:
+                confirmationToken: { type: string }
+      responses:
+        '200':
+          description: Végrehajtási eredmény
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [succeeded, affectedEntityIds]
+                properties:
+                  succeeded: { type: boolean }
+                  affectedEntityIds:
+                    type: array
+                    items: { type: string, format: uuid }
+        '409': { description: Az előnézet lejárt vagy az adatok megváltoztak }
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: __Host-PatikaSession
+  parameters:
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema: { type: string, minLength: 16, maxLength: 200 }
+  schemas:
+    SessionDto:
+      type: object
+      required: [userId, displayName, permissions, employee]
+      properties:
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+        permissions:
+          type: array
+          items: { $ref: '#/components/schemas/ApplicationPermission' }
+        employee:
+          oneOf:
+            - $ref: '#/components/schemas/EmployeeSummaryDto'
+            - type: 'null'
+    ApplicationPermission:
+      type: string
+      enum: [EmployeeSelfService, ScheduleViewOwn, LeaveRequestOwn, ScheduleManage, LeaveApprove, EmployeeManage, OrganizationAdmin, AuditView]
+    ProfessionalRole:
+      type: string
+      enum: [PharmacyManager, Pharmacist, SpecialistAssistant, Assistant, PharmacistTrainee, AssistantTrainee, Cleaner, FinanceHelper, Other]
+    LeaveType:
+      type: string
+      enum: [AnnualLeave, SickLeave, UnpaidLeave, MaternityLeave, ParentalLeave, Other]
+    LeaveRequestStatus:
+      type: string
+      enum: [Draft, Pending, Approved, Rejected, Withdrawn, Cancelled, Reported, Recorded, Closed]
+    ScheduleStatus:
+      type: string
+      enum: [Draft, Approved, Archived]
+    RuleSeverity:
+      type: string
+      enum: [Warning, Blocking]
+    EmployeeSummaryDto:
+      type: object
+      required: [id, displayName, professionalRole]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        professionalRole: { $ref: '#/components/schemas/ProfessionalRole' }
+    EmployeeDto:
+      allOf:
+        - $ref: '#/components/schemas/EmployeeSummaryDto'
+        - type: object
+          required: [fullName, active, schedulable, includeInAutoFill, countsAsPharmacist, locationIds, monthlyHours, maxDailyHours, version]
+          properties:
+            fullName: { type: string }
+            active: { type: boolean }
+            schedulable: { type: boolean }
+            includeInAutoFill: { type: boolean }
+            countsAsPharmacist: { type: boolean }
+            locationIds:
+              type: array
+              items: { type: string, format: uuid }
+            monthlyHours: { type: number, minimum: 0 }
+            maxDailyHours: { type: number, minimum: 0 }
+            preferredWindows:
+              type: array
+              items: { $ref: '#/components/schemas/TimeWindowDto' }
+            forbiddenWindows:
+              type: array
+              items: { $ref: '#/components/schemas/TimeWindowDto' }
+            version: { type: integer, minimum: 1 }
+    TimeWindowDto:
+      type: object
+      required: [dayOfWeek, start, end]
+      properties:
+        dayOfWeek: { type: integer, minimum: 1, maximum: 7 }
+        start: { type: string, pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' }
+        end: { type: string, pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' }
+    LocationDto:
+      type: object
+      required: [id, name, kind, active, version]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        kind: { type: string, enum: [Central, Branch] }
+        active: { type: boolean }
+        version: { type: integer, minimum: 1 }
+    ShiftDto:
+      type: object
+      required: [id, scheduleId, employee, location, startsAt, endsAt, timeType, version]
+      properties:
+        id: { type: string, format: uuid }
+        scheduleId: { type: string, format: uuid }
+        employee: { $ref: '#/components/schemas/EmployeeSummaryDto' }
+        location: { $ref: '#/components/schemas/LocationDto' }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        timeType: { type: string, enum: [Work, Overtime, OnCallDuty, Standby, Training, Other] }
+        note: { type: [string, 'null'] }
+        version: { type: integer, minimum: 1 }
+    UpsertShiftRequest:
+      type: object
+      required: [employeeId, locationId, startsAt, endsAt, timeType]
+      properties:
+        employeeId: { type: string, format: uuid }
+        locationId: { type: string, format: uuid }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        timeType: { type: string, enum: [Work, Overtime, OnCallDuty, Standby, Training, Other] }
+        note: { type: [string, 'null'], maxLength: 1000 }
+        expectedVersion: { type: [integer, 'null'], minimum: 1 }
+    ScheduleDto:
+      type: object
+      required: [id, name, periodStart, periodEnd, status, version]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        periodStart: { type: string, format: date }
+        periodEnd: { type: string, format: date }
+        status: { $ref: '#/components/schemas/ScheduleStatus' }
+        version: { type: integer, minimum: 1 }
+    CreateOwnLeaveRequest:
+      type: object
+      required: [leaveType, startsAt, endsAt, fullDay]
+      properties:
+        leaveType: { $ref: '#/components/schemas/LeaveType' }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        fullDay: { type: boolean }
+        employeeNote: { type: [string, 'null'], maxLength: 1000 }
+    CreateLeaveForEmployee:
+      allOf:
+        - $ref: '#/components/schemas/CreateOwnLeaveRequest'
+        - type: object
+          required: [employeeId]
+          properties:
+            employeeId: { type: string, format: uuid }
+            recordAsApproved: { type: boolean, default: false }
+    LeaveDecisionRequest:
+      type: object
+      required: [decision, expectedVersion]
+      properties:
+        decision: { type: string, enum: [Approve, Reject] }
+        reason: { type: [string, 'null'], maxLength: 1000 }
+        expectedVersion: { type: integer, minimum: 1 }
+    LeaveRequestDto:
+      type: object
+      required: [id, employee, leaveType, startsAt, endsAt, fullDay, status, createdAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        employee: { $ref: '#/components/schemas/EmployeeSummaryDto' }
+        leaveType: { $ref: '#/components/schemas/LeaveType' }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        fullDay: { type: boolean }
+        status: { $ref: '#/components/schemas/LeaveRequestStatus' }
+        employeeNote: { type: [string, 'null'] }
+        decisionReason: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+    CoverageRuleDto:
+      type: object
+      required: [id, locationId, dayOfWeek, start, end, professionalRole, requiredCount, severity, active]
+      properties:
+        id: { type: string, format: uuid }
+        locationId: { type: string, format: uuid }
+        dayOfWeek: { type: integer, minimum: 1, maximum: 7 }
+        start: { type: string, pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' }
+        end: { type: string, pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' }
+        professionalRole: { $ref: '#/components/schemas/ProfessionalRole' }
+        requiredCount: { type: integer, minimum: 0 }
+        severity: { $ref: '#/components/schemas/RuleSeverity' }
+        active: { type: boolean }
+    ScheduleIssueDto:
+      type: object
+      required: [code, severity, message]
+      properties:
+        code: { type: string }
+        severity: { $ref: '#/components/schemas/RuleSeverity' }
+        message: { type: string }
+        entityIds:
+          type: array
+          items: { type: string, format: uuid }
+    ValidationProblemDto:
+      type: object
+      required: [title, issues]
+      properties:
+        title: { type: string }
+        issues:
+          type: array
+          items: { $ref: '#/components/schemas/ScheduleIssueDto' }
+    AiCommandPreviewDto:
+      type: object
+      required: [previewId, inputText, resolvedSummary, actions, warnings, clarifications, canExecute, expiresAt, confirmationToken]
+      properties:
+        previewId: { type: string, format: uuid }
+        inputText: { type: string }
+        resolvedSummary: { type: string }
+        actions:
+          type: array
+          items:
+            type: object
+            required: [actionType, summary, parameters]
+            properties:
+              actionType: { type: string }
+              summary: { type: string }
+              parameters: { type: object, additionalProperties: true }
+        warnings:
+          type: array
+          items: { type: string }
+        clarifications:
+          type: array
+          items: { type: string }
+        canExecute: { type: boolean }
+        expiresAt: { type: string, format: date-time }
+        confirmationToken: { type: string }

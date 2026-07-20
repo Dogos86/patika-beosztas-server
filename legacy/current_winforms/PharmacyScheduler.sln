@@ -1,0 +1,33 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35013.160
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PharmacyScheduler.Core", "PharmacyScheduler.Core\PharmacyScheduler.Core.csproj", "{A5FF5F57-8229-495E-96EA-BC01B67331CC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PharmacyScheduler.WinForms", "PharmacyScheduler.WinForms\PharmacyScheduler.WinForms.csproj", "{335C77F0-FD38-4C04-8885-43A7BD7B885E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PharmacyScheduler.Tests", "PharmacyScheduler.Tests\PharmacyScheduler.Tests.csproj", "{1605CB0A-84B8-437C-A48B-C946DFB7369D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A5FF5F57-8229-495E-96EA-BC01B67331CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A5FF5F57-8229-495E-96EA-BC01B67331CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A5FF5F57-8229-495E-96EA-BC01B67331CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A5FF5F57-8229-495E-96EA-BC01B67331CC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{335C77F0-FD38-4C04-8885-43A7BD7B885E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{335C77F0-FD38-4C04-8885-43A7BD7B885E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{335C77F0-FD38-4C04-8885-43A7BD7B885E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{335C77F0-FD38-4C04-8885-43A7BD7B885E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1605CB0A-84B8-437C-A48B-C946DFB7369D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1605CB0A-84B8-437C-A48B-C946DFB7369D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1605CB0A-84B8-437C-A48B-C946DFB7369D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1605CB0A-84B8-437C-A48B-C946DFB7369D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

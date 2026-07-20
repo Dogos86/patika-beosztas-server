@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/schemas/ai-command-preview-v1.json",
+  "title": "Patika Beosztás AI Command Preview v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "intent",
+    "summary",
+    "actions",
+    "clarifications",
+    "warnings",
+    "requiresConfirmation"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "intent": {
+      "type": "string",
+      "enum": [
+        "create_leave_request",
+        "report_sick_leave",
+        "withdraw_leave_request",
+        "create_shift",
+        "update_shift",
+        "delete_shift",
+        "copy_schedule_period",
+        "run_autofill",
+        "update_employee_preferences",
+        "query_schedule",
+        "unknown"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "actions": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "actionType",
+          "parameters"
+        ],
+        "properties": {
+          "actionType": {
+            "type": "string",
+            "enum": [
+              "CREATE_SELF_LEAVE_REQUEST",
+              "REPORT_SELF_SICK_LEAVE",
+              "CREATE_LEAVE_FOR_EMPLOYEE",
+              "WITHDRAW_SELF_LEAVE_REQUEST",
+              "CREATE_SHIFT",
+              "UPDATE_SHIFT",
+              "DELETE_SHIFT",
+              "COPY_SCHEDULE_PERIOD",
+              "RUN_AUTOFILL",
+              "UPDATE_EMPLOYEE_PREFERENCES",
+              "QUERY_OWN_SCHEDULE"
+            ]
+          },
+          "parameters": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "clarifications": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "requiresConfirmation": {
+      "type": "boolean"
+    }
+  }
+}
