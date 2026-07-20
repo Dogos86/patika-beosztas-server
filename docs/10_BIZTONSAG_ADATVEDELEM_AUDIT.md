@@ -14,6 +14,15 @@
 - audit fontos módosításokra;
 - mentési/visszaállítási terv.
 
+Cookie-auth frontend-integrációnál minden kérés `credentials: "include"`
+beállítást használ, a frontend és az API HTTPS-en, azonos site alatt fut, a
+mutációk pedig `X-CSRF-TOKEN` headert kérnek. Credentiales CORS csak
+konfigurált pontos origin allowlisttel engedhető; `AllowAnyOrigin` tilos.
+
+A reverse proxy, Forwarded Headers, tartós Data Protection kulcstár,
+`AllowedHosts` és secret store production követelményeit a
+`docs/PHASE_1_5_HARDENING.md` checklistje részletezi.
+
 ## Egészségügyi adat minimalizálása
 
 - betegállomány ténye és időtartama kezelhető;

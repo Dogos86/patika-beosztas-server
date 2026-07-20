@@ -64,6 +64,8 @@ public sealed class SecurityBoundaryTests
         Assert.AreEqual(HttpStatusCode.OK, loginResponse.StatusCode);
         Assert.IsNotNull(loginSession);
         Assert.AreEqual(IntegrationTestData.OrganizationId, loginSession.OrganizationId);
+        Assert.AreEqual("Első teszt szervezet", loginSession.OrganizationName);
+        Assert.AreEqual("Europe/Budapest", loginSession.OrganizationTimeZoneId);
         Assert.AreEqual(IntegrationTestData.AdminEmployeeId, loginSession.LinkedEmployee?.Id);
         Assert.IsTrue(loginSession.LinkedEmployee?.IsSchedulable);
         Assert.Contains(ApplicationPermission.ManageUsers, loginSession.Permissions);
@@ -93,6 +95,90 @@ public sealed class SecurityBoundaryTests
 
         Assert.AreEqual(HttpStatusCode.Unauthorized, inactiveUserResponse.StatusCode);
         Assert.AreEqual(HttpStatusCode.Unauthorized, inactiveOrganizationResponse.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task CredentialCookieDoesNotBypassCsrfProtection()
+    {
+        using var loginResponse = await LoginAsync(
+            "admin@test.invalid",
+            IntegrationTestData.Password);
+        Assert.AreEqual(HttpStatusCode.OK, loginResponse.StatusCode);
+        var sessionCookie = loginResponse.Headers.GetValues("Set-Cookie")
+            .Single(value => value.StartsWith("__Host-PatikaSession=", StringComparison.Ordinal));
+        Assert.Contains("secure", sessionCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("httponly", sessionCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("samesite=lax", sessionCookie, StringComparison.OrdinalIgnoreCase);
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/admin/employees",
+            new CreateEmployeeRequest(
+                "CSRF Teszt",
+                "CSRF Teszt",
+                ProfessionalRole.Assistant,
+                true,
+                true,
+                false,
+                false,
+                null,
+                null,
+                null,
+                null,
+                [],
+                [],
+                []),
+            JsonOptions);
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(
+            "INVALID_CSRF_TOKEN",
+            await response.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal);
+    }
+
+    [TestMethod]
+    public async Task PublicIdentityValidationMessagesAreHungarian()
+    {
+        using var loginResponse = await LoginAsync(
+            "admin@test.invalid",
+            IntegrationTestData.Password);
+        using var weakPasswordResponse = await SendWithCsrfAsync(
+            HttpMethod.Post,
+            "/api/admin/users",
+            new CreateUserRequest(
+                "uj-felhasznalo@test.invalid",
+                "Új Felhasználó",
+                "gyenge",
+                null,
+                [],
+                true));
+        var weakPasswordBody = await weakPasswordResponse.Content.ReadAsStringAsync();
+        Assert.AreEqual(
+            HttpStatusCode.UnprocessableEntity,
+            weakPasswordResponse.StatusCode);
+        Assert.Contains("A jelszónak", weakPasswordBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("Passwords must", weakPasswordBody, StringComparison.Ordinal);
+
+        using var duplicateResponse = await SendWithCsrfAsync(
+            HttpMethod.Post,
+            "/api/admin/users",
+            new CreateUserRequest(
+                "admin@test.invalid",
+                "Másik Admin",
+                IntegrationTestData.Password,
+                null,
+                [],
+                true));
+        var duplicateBody = await duplicateResponse.Content.ReadAsStringAsync();
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, duplicateResponse.StatusCode);
+        Assert.Contains(
+            "már létezik",
+            duplicateBody,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            "is already taken",
+            duplicateBody,
+            StringComparison.OrdinalIgnoreCase);
     }
 
     [TestMethod]
@@ -142,9 +228,12 @@ public sealed class SecurityBoundaryTests
                 null,
                 false,
                 1));
+        using var userResponse = await client.GetAsync(
+            $"/api/admin/users/{IntegrationTestData.InactiveOrganizationUserId}");
 
         Assert.AreEqual(HttpStatusCode.NotFound, employeeResponse.StatusCode);
         Assert.AreEqual(HttpStatusCode.NotFound, locationResponse.StatusCode);
+        Assert.AreEqual(HttpStatusCode.NotFound, userResponse.StatusCode);
     }
 
     [TestMethod]
@@ -230,6 +319,108 @@ public sealed class SecurityBoundaryTests
             "TIME_WINDOW_ORDER",
             await response.Content.ReadAsStringAsync(),
             StringComparison.Ordinal);
+    }
+
+    [TestMethod]
+    public async Task EmployeeValidationRejectsLimitsFutureBirthDateAndInvalidAutofillFlags()
+    {
+        using var loginResponse = await LoginAsync(
+            "admin@test.invalid",
+            IntegrationTestData.Password);
+        var request = new CreateEmployeeRequest(
+            "Érvénytelen Dolgozó",
+            "Érvénytelen",
+            ProfessionalRole.Assistant,
+            false,
+            false,
+            true,
+            false,
+            0,
+            1_441,
+            new DateOnly(9999, 12, 31),
+            null,
+            [],
+            [],
+            []);
+
+        using var response = await SendWithCsrfAsync(
+            HttpMethod.Post,
+            "/api/admin/employees",
+            request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Contains("MONTHLY_MINUTES_OUT_OF_RANGE", body, StringComparison.Ordinal);
+        Assert.Contains("MAX_DAILY_MINUTES_OUT_OF_RANGE", body, StringComparison.Ordinal);
+        Assert.Contains("BIRTH_DATE_IN_FUTURE", body, StringComparison.Ordinal);
+        Assert.Contains(
+            "AUTOFILL_REQUIRES_ACTIVE_SCHEDULABLE_EMPLOYEE",
+            body,
+            StringComparison.Ordinal);
+    }
+
+    [TestMethod]
+    public async Task EmployeeStringsAreNormalizedBeforePersistenceAndResponse()
+    {
+        using var loginResponse = await LoginAsync(
+            "admin@test.invalid",
+            IntegrationTestData.Password);
+        var request = new CreateEmployeeRequest(
+            "  Normalizált Teljes Név  ",
+            "  Normalizált Név  ",
+            ProfessionalRole.Assistant,
+            true,
+            true,
+            false,
+            false,
+            null,
+            null,
+            null,
+            "   ",
+            [],
+            [],
+            []);
+
+        using var response = await SendWithCsrfAsync(
+            HttpMethod.Post,
+            "/api/admin/employees",
+            request);
+        var employee = await response.Content.ReadFromJsonAsync<EmployeeResponse>(JsonOptions);
+
+        Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
+        Assert.IsNotNull(employee);
+        Assert.AreEqual("Normalizált Teljes Név", employee.FullName);
+        Assert.AreEqual("Normalizált Név", employee.DisplayName);
+        Assert.IsNull(employee.ExternalPayrollId);
+    }
+
+    [TestMethod]
+    public async Task IntegerEmployeeEnumsAreRejected()
+    {
+        using var loginResponse = await LoginAsync(
+            "admin@test.invalid",
+            IntegrationTestData.Password);
+        var payload = """
+            {
+              "fullName": "Integer Enum Teszt",
+              "displayName": "Integer Enum Teszt",
+              "professionalRole": 3,
+              "isActive": true,
+              "isSchedulable": true,
+              "includeInAutoFill": false,
+              "countsAsPharmacist": false,
+              "locations": [],
+              "timeWindows": [],
+              "allowedTimeTypes": [0]
+            }
+            """;
+
+        using var response = await SendRawJsonWithCsrfAsync(
+            HttpMethod.Post,
+            "/api/admin/employees",
+            payload);
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [TestMethod]
@@ -356,6 +547,10 @@ public sealed class SecurityBoundaryTests
         using var loginResponse = await LoginAsync(
             "admin@test.invalid",
             IntegrationTestData.Password);
+        var regularUser = await client.GetFromJsonAsync<UserResponse>(
+            $"/api/admin/users/{IntegrationTestData.RegularUserId}",
+            JsonOptions);
+        Assert.IsNotNull(regularUser);
         using var updateResponse = await SendWithCsrfAsync(
             HttpMethod.Put,
             $"/api/admin/users/{IntegrationTestData.RegularUserId}/permissions",
@@ -363,9 +558,28 @@ public sealed class SecurityBoundaryTests
                 [
                     ApplicationPermission.ViewOwnSchedule,
                     ApplicationPermission.ManageEmployees
-                ]));
+                ],
+                regularUser.Version));
         Assert.AreEqual(HttpStatusCode.OK, updateResponse.StatusCode);
+        using var staleVersionResponse = await SendWithCsrfAsync(
+            HttpMethod.Put,
+            $"/api/admin/users/{IntegrationTestData.RegularUserId}/permissions",
+            new UpdateUserPermissionsRequest(
+                [
+                    ApplicationPermission.ViewOwnSchedule,
+                    ApplicationPermission.ManageEmployees
+                ],
+                regularUser.Version));
+        Assert.AreEqual(HttpStatusCode.Conflict, staleVersionResponse.StatusCode);
+        Assert.Contains(
+            "CONCURRENCY_CONFLICT",
+            await staleVersionResponse.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal);
 
+        var adminUser = await client.GetFromJsonAsync<UserResponse>(
+            $"/api/admin/users/{IntegrationTestData.AdminUserId}",
+            JsonOptions);
+        Assert.IsNotNull(adminUser);
         using var lastManagerResponse = await SendWithCsrfAsync(
             HttpMethod.Put,
             $"/api/admin/users/{IntegrationTestData.AdminUserId}/permissions",
@@ -373,7 +587,8 @@ public sealed class SecurityBoundaryTests
                 [
                     ApplicationPermission.ManageEmployees,
                     ApplicationPermission.ManageLocations
-                ]));
+                ],
+                adminUser.Version));
         Assert.AreEqual(
             HttpStatusCode.UnprocessableEntity,
             lastManagerResponse.StatusCode);
@@ -400,30 +615,40 @@ public sealed class SecurityBoundaryTests
         using var loginResponse = await LoginAsync(
             "admin@test.invalid",
             IntegrationTestData.Password);
+        var inactiveUser = await client.GetFromJsonAsync<UserResponse>(
+            $"/api/admin/users/{IntegrationTestData.InactiveUserId}",
+            JsonOptions);
+        Assert.IsNotNull(inactiveUser);
         using var linkResponse = await SendWithCsrfAsync(
             HttpMethod.Put,
             $"/api/admin/users/{IntegrationTestData.InactiveUserId}/employee-link",
-            new UpdateUserEmployeeLinkRequest(IntegrationTestData.OfflineEmployeeId));
+            new UpdateUserEmployeeLinkRequest(
+                IntegrationTestData.OfflineEmployeeId,
+                inactiveUser.Version));
         var linkedUser = await linkResponse.Content.ReadFromJsonAsync<UserResponse>(
             JsonOptions);
         Assert.AreEqual(HttpStatusCode.OK, linkResponse.StatusCode);
+        Assert.IsNotNull(linkedUser);
         Assert.AreEqual(
             IntegrationTestData.OfflineEmployeeId,
-            linkedUser?.LinkedEmployee?.Id);
+            linkedUser.LinkedEmployee?.Id);
 
         using var statusResponse = await SendWithCsrfAsync(
             HttpMethod.Put,
             $"/api/admin/users/{IntegrationTestData.InactiveUserId}/status",
-            new UpdateUserStatusRequest(true));
+            new UpdateUserStatusRequest(true, linkedUser.Version));
         var activeUser = await statusResponse.Content.ReadFromJsonAsync<UserResponse>(
             JsonOptions);
         Assert.AreEqual(HttpStatusCode.OK, statusResponse.StatusCode);
-        Assert.IsTrue(activeUser?.IsActive == true);
+        Assert.IsNotNull(activeUser);
+        Assert.IsTrue(activeUser.IsActive);
 
         using var crossTenantLinkResponse = await SendWithCsrfAsync(
             HttpMethod.Put,
             $"/api/admin/users/{IntegrationTestData.InactiveUserId}/employee-link",
-            new UpdateUserEmployeeLinkRequest(IntegrationTestData.OtherEmployeeId));
+            new UpdateUserEmployeeLinkRequest(
+                IntegrationTestData.OtherEmployeeId,
+                activeUser.Version));
         Assert.AreEqual(
             HttpStatusCode.UnprocessableEntity,
             crossTenantLinkResponse.StatusCode);

@@ -16,8 +16,13 @@ public sealed class InputValidationTests
         var errors = InputValidation.ValidateEmployee(
             "Teszt Elek",
             "Teszt",
+            true,
+            true,
+            true,
             10_080,
             720,
+            null,
+            new DateOnly(2026, 7, 20),
             null,
             [
                 new EmployeeLocationRequest(locationId),
@@ -28,6 +33,31 @@ public sealed class InputValidationTests
 
         Assert.IsTrue(errors.Any(error => error.Code == "DUPLICATE_LOCATION"));
         Assert.IsTrue(errors.Any(error => error.Code == "DUPLICATE_TIME_TYPE"));
+    }
+
+    [TestMethod]
+    public void EmployeeLimitsBirthDateAndAutofillFlagsAreValidated()
+    {
+        var errors = InputValidation.ValidateEmployee(
+            "Teszt Elek",
+            "Teszt",
+            false,
+            false,
+            true,
+            0,
+            1_441,
+            new DateOnly(2026, 7, 21),
+            new DateOnly(2026, 7, 20),
+            "  bér-azonosító  ",
+            [],
+            [],
+            []);
+
+        Assert.IsTrue(errors.Any(error => error.Code == "MONTHLY_MINUTES_OUT_OF_RANGE"));
+        Assert.IsTrue(errors.Any(error => error.Code == "MAX_DAILY_MINUTES_OUT_OF_RANGE"));
+        Assert.IsTrue(errors.Any(error => error.Code == "BIRTH_DATE_IN_FUTURE"));
+        Assert.IsTrue(errors.Any(error =>
+            error.Code == "AUTOFILL_REQUIRES_ACTIVE_SCHEDULABLE_EMPLOYEE"));
     }
 
     [TestMethod]

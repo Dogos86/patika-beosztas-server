@@ -16,6 +16,7 @@ Minden üzleti entitás tartalmazzon `OrganizationId`-t, ahol releváns audit me
 - DisplayName
 - Active
 - EmployeeId nullable, egyedi kapcsolat ugyanabban a szervezetben
+- Version (`xmin`)
 
 ## Employee
 - Id
@@ -137,3 +138,12 @@ Minden üzleti entitás tartalmazzon `OrganizationId`-t, ahol releváns audit me
 - ExecutedAtUtc nullable
 
 Ne tároljunk diagnózist és alapértelmezésben nyers hangfájlt.
+
+## Tenant-kapcsolatok
+
+Az organization-scoped kapcsolatok kompozit idegen kulcsot használnak, így a
+kapcsoló rekord `OrganizationId` értékének egyeznie kell mindkét hivatkozott
+rekord szervezetével. Ez különösen kötelező az ApplicationUser–Employee,
+EmployeeLocation–Employee/Location, EmployeeTimeWindow–Employee,
+EmployeeAllowedTimeType–Employee és UserPermission–ApplicationUser
+kapcsolatoknál.

@@ -1,11 +1,11 @@
-00_OLVASD_ELŐSZÖR.md
+00_OLVASD_ELOSZOR.md
 AGENTS.md
 contracts/ai-command.schema.json
 contracts/api-contract-draft.yaml
 docs/01_TERMEKVIZIO_ES_SCOPE.md
 docs/02_SZEREPEK_ES_JOGOSULTSAGOK.md
 docs/03_SZABADSAG_ES_TAVOLLET_FOLYAMATOK.md
-docs/04_BEOSZTAS_ES_LEFEDETTSÉG.md
+docs/04_BEOSZTAS_ES_LEFEDETTSEG.md
 docs/05_ARCHITEKTURA.md
 docs/06_ADATMODELL.md
 docs/07_API_SZERZODES.md

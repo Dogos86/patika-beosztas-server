@@ -13,7 +13,9 @@ felhasználónak szánt hibaüzenetek magyarok; az API- és kódazonosítók ang
 A `legacy/current_winforms/` referenciaforrás read-only. A canonical,
 buildelhető legacy solution:
 `legacy/current_winforms/PharmacySchedulerWinForms/PharmacySchedulerWinForms/PharmacyScheduler.sln`.
-A felső, hibás solution és az archív ZIP nem része az új solution buildjének.
+A felső, hibás `legacy/current_winforms/PharmacyScheduler.sln` és a megőrzendő
+`legacy/current_winforms/PharmacySchedulerWinForms.zip` archívum nem része az
+új solution buildjének.
 
 ## Helyi PostgreSQL
 
@@ -57,6 +59,12 @@ kívül sem automatikus migráció, sem seed nem fut.
 
 A böngésző `__Host-PatikaSession` nevű `HttpOnly`, `Secure`, `SameSite=Lax`
 Identity cookie-t kap; tokent nem kell és nem szabad `localStorage`-be tenni.
+Az API és a frontend HTTPS-en, azonos site alatt fusson; a frontend minden
+authentikált és CSRF-tokenes kérésnél használjon `credentials: "include"`
+beállítást. Fejlesztéskor az engedélyezett pontos frontend origineket a
+`Cors:AllowedOrigins` konfiguráció adja meg. Credential mellett
+`AllowAnyOrigin` nem használható.
+
 Minden állapotmódosító kérés előtt:
 
 1. `GET /api/auth/csrf`;
@@ -73,6 +81,16 @@ Fő auth endpointok:
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `GET /api/auth/session`
+
+A session válasz a user és organization azonosítója mellett a szervezet nevét,
+`OrganizationTimeZoneId` értékét, az exact permission listát és az opcionális
+kapcsolt dolgozót adja vissza. Nincs összefoglaló `admin` role; a frontend a
+permissionök alapján dönt.
+
+Felhasználó-integrációnál a lista és a
+`GET /api/admin/users/{id}` részletező végpont `version` mezőt ad. A permission-,
+employee-link- és státuszmódosító PUT requestek ezt `expectedVersion` néven
+visszakérik; stale verzió esetén `409 CONCURRENCY_CONFLICT` érkezik.
 
 Az OpenAPI futás közben az `/openapi/v1.json` címen érhető el.
 
@@ -101,3 +119,5 @@ adatbázist használnak. Docker hiányában ezek `Skipped` állapotúak; ilyenko
 PostgreSQL-specifikus működés nem tekinthető ellenőrzöttnek.
 
 Részletes fázisleírás: `docs/PHASE_1_IMPLEMENTATION.md`.
+A Phase 1.5 hardening, frontend-integráció és production checklist:
+`docs/PHASE_1_5_HARDENING.md`.

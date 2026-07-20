@@ -1,4 +1,4 @@
-# Patika Beosztás – Codex szervercsomag
+# Patika Beosztás – Codex szervercsomag: olvasd el először
 
 Ez a csomag a **VS Code + Codex** számára készült. A cél az ASP.NET Core .NET 10 backend és a régi WinForms logika biztonságos migrációja.
 

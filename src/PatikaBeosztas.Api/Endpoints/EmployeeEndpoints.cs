@@ -156,7 +156,7 @@ public static class EmployeeEndpoints
             return EndpointHelpers.Unauthorized();
         }
 
-        var errors = ValidateRequest(request);
+        var errors = ValidateRequest(request, GetBusinessDate(timeProvider));
         if (errors.Count > 0)
         {
             return EndpointHelpers.ValidationProblem(errors);
@@ -236,7 +236,7 @@ public static class EmployeeEndpoints
             return EndpointHelpers.Unauthorized();
         }
 
-        var errors = ValidateRequest(request);
+        var errors = ValidateRequest(request, GetBusinessDate(timeProvider));
         if (errors.Count > 0)
         {
             return EndpointHelpers.ValidationProblem(errors);
@@ -395,24 +395,36 @@ public static class EmployeeEndpoints
             employee.UpdatedAtUtc);
 
     private static IReadOnlyList<ApiValidationError> ValidateRequest(
-        CreateEmployeeRequest request) =>
+        CreateEmployeeRequest request,
+        DateOnly currentDate) =>
         InputValidation.ValidateEmployee(
             request.FullName,
             request.DisplayName,
+            request.IsActive,
+            request.IsSchedulable,
+            request.IncludeInAutoFill,
             request.MonthlyMinutesLimit,
             request.MaxDailyMinutes,
+            request.BirthDate,
+            currentDate,
             request.ExternalPayrollId,
             request.Locations,
             request.TimeWindows,
             request.AllowedTimeTypes);
 
     private static IReadOnlyList<ApiValidationError> ValidateRequest(
-        UpdateEmployeeRequest request) =>
+        UpdateEmployeeRequest request,
+        DateOnly currentDate) =>
         InputValidation.ValidateEmployee(
             request.FullName,
             request.DisplayName,
+            request.IsActive,
+            request.IsSchedulable,
+            request.IncludeInAutoFill,
             request.MonthlyMinutesLimit,
             request.MaxDailyMinutes,
+            request.BirthDate,
+            currentDate,
             request.ExternalPayrollId,
             request.Locations,
             request.TimeWindows,
@@ -557,4 +569,11 @@ public static class EmployeeEndpoints
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static DateOnly GetBusinessDate(TimeProvider timeProvider)
+    {
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Budapest");
+        var localNow = TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), timeZone);
+        return DateOnly.FromDateTime(localNow.Date);
+    }
 }

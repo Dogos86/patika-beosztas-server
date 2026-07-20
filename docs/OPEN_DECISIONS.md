@@ -63,6 +63,14 @@ elő. Döntésig ezt a szabályt nem szabad átvinni.
 Meg kell nevezni a megtartandó Excel/PDF formátumokat, az oszlopok stabilitását,
 a könyvelői igényeket, valamint azt, hogy exportálható-e Draft beosztás.
 
+### LEG-007 – Dolgozói időablakok átfedési szemantikája
+
+A Phase 1.5 nem változtatott a meglévő szabályon: az egymást metsző általános
+és naphoz kötött időablakok, illetve a különböző típusú metsző időablakok is
+ütközésnek számítanak. A preferred/forbidden ablakok jövőbeli prioritás- vagy
+felülírási szabálya üzleti döntést igényel; addig ezt nem szabad önkényesen
+módosítani.
+
 ## Hitelesítés és üzemeltetés
 
 Az 1. fázis aktív promptja az első implementációra ASP.NET Core Identity +

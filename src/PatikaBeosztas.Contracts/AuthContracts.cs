@@ -7,6 +7,8 @@ public sealed record LoginRequest(string Email, string Password, bool RememberMe
 public sealed record SessionResponse(
     Guid UserId,
     Guid OrganizationId,
+    string OrganizationName,
+    string OrganizationTimeZoneId,
     string DisplayName,
     string Email,
     IReadOnlyList<ApplicationPermission> Permissions,

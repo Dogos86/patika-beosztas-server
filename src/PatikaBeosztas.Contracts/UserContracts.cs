@@ -11,11 +11,16 @@ public sealed record CreateUserRequest(
     bool IsActive = true);
 
 public sealed record UpdateUserPermissionsRequest(
-    IReadOnlyList<ApplicationPermission> Permissions);
+    IReadOnlyList<ApplicationPermission> Permissions,
+    uint ExpectedVersion);
 
-public sealed record UpdateUserEmployeeLinkRequest(Guid? EmployeeId);
+public sealed record UpdateUserEmployeeLinkRequest(
+    Guid? EmployeeId,
+    uint ExpectedVersion);
 
-public sealed record UpdateUserStatusRequest(bool IsActive);
+public sealed record UpdateUserStatusRequest(
+    bool IsActive,
+    uint ExpectedVersion);
 
 public sealed record UserResponse(
     Guid Id,
@@ -24,5 +29,6 @@ public sealed record UserResponse(
     bool IsActive,
     LinkedEmployeeSummary? LinkedEmployee,
     IReadOnlyList<ApplicationPermission> Permissions,
+    uint Version,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc);

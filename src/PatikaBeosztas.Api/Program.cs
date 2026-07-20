@@ -27,9 +27,11 @@ builder.Services.AddOpenApi(options =>
     options.AddDocumentTransformer((document, _, _) =>
     {
         document.Info.Title = "Patika Beosztás API";
-        document.Info.Version = "0.1.0-phase1";
+        document.Info.Version = "0.1.5-phase1-hardening";
         document.Info.Description =
-            "Szervezethez kötött, cookie-authentikált gyógyszertári adminisztrációs API.";
+            "Szervezethez kötött, cookie-authentikált gyógyszertári adminisztrációs API; " +
+            "a frontend HTTPS-en, az API-val azonos site alatt, credentials: include beállítással hívja; " +
+            "a mutációkhoz CSRF-token és az optimista konkurenciát használó kéréseknél verzió szükséges.";
         document.Components ??= new OpenApiComponents();
         document.Components.SecuritySchemes ??=
             new Dictionary<string, IOpenApiSecurityScheme>();
@@ -153,11 +155,11 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
-var allowedOrigins = builder.Configuration
-    .GetSection("Cors:AllowedOrigins")
-    .Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
 {
+    var allowedOrigins = builder.Configuration
+        .GetSection("Cors:AllowedOrigins")
+        .Get<string[]>() ?? [];
     options.AddPolicy("Frontend", policy =>
     {
         if (allowedOrigins.Length > 0)

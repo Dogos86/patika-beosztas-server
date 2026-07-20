@@ -1,5 +1,7 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace PatikaBeosztas.Api.IntegrationTests;
@@ -42,6 +44,7 @@ public sealed class OperationalEndpointTests
         Assert.IsTrue(paths.TryGetProperty("/api/admin/employees", out _));
         Assert.IsTrue(paths.TryGetProperty("/api/admin/locations", out _));
         Assert.IsTrue(paths.TryGetProperty("/api/admin/users", out _));
+        Assert.IsTrue(paths.TryGetProperty("/api/admin/users/{id}", out _));
         Assert.AreEqual(
             "__Host-PatikaSession",
             schemes.GetProperty("cookieAuth").GetProperty("name").GetString());
@@ -58,6 +61,20 @@ public sealed class OperationalEndpointTests
                 .Any(parameter =>
                     parameter.GetProperty("name").GetString() == "X-CSRF-TOKEN"));
         Assert.Contains("PharmacyManager", body, StringComparison.Ordinal);
+        var schemas = root.GetProperty("components").GetProperty("schemas");
+        Assert.IsTrue(
+            schemas.GetProperty("UserResponse")
+                .GetProperty("properties")
+                .TryGetProperty("version", out _));
+        var sessionProperties = schemas.GetProperty("SessionResponse")
+            .GetProperty("properties");
+        Assert.IsTrue(sessionProperties.TryGetProperty("organizationName", out _));
+        Assert.IsTrue(sessionProperties.TryGetProperty("organizationTimeZoneId", out _));
+        Assert.IsFalse(sessionProperties.TryGetProperty("role", out _));
+        Assert.IsTrue(
+            schemas.GetProperty("UpdateUserPermissionsRequest")
+                .GetProperty("properties")
+                .TryGetProperty("expectedVersion", out _));
     }
 
     [TestMethod]
@@ -72,5 +89,57 @@ public sealed class OperationalEndpointTests
         Assert.AreEqual(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.AreEqual("application/problem+json", response.Content.Headers.ContentType?.MediaType);
         Assert.Contains("AUTHENTICATION_REQUIRED", body, StringComparison.Ordinal);
+    }
+
+    [TestMethod]
+    public async Task ConfiguredFrontendOriginReceivesCredentialedCorsPreflight()
+    {
+        await using var application = new ApiFactory(UnusedConnectionString);
+        using var client = application.CreateHttpsClient();
+        using var request = new HttpRequestMessage(HttpMethod.Options, "/api/admin/employees");
+        request.Headers.Add("Origin", "https://localhost:5173");
+        request.Headers.Add("Access-Control-Request-Method", "POST");
+        request.Headers.Add(
+            "Access-Control-Request-Headers",
+            "content-type,x-csrf-token");
+
+        using var response = await client.SendAsync(request);
+
+        Assert.AreEqual(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.AreEqual(
+            "https://localhost:5173",
+            response.Headers.GetValues("Access-Control-Allow-Origin").Single());
+        Assert.AreEqual(
+            "true",
+            response.Headers.GetValues("Access-Control-Allow-Credentials").Single());
+
+        using var rejectedRequest = new HttpRequestMessage(
+            HttpMethod.Options,
+            "/api/admin/employees");
+        rejectedRequest.Headers.Add("Origin", "https://nem-engedelyezett.example");
+        rejectedRequest.Headers.Add("Access-Control-Request-Method", "POST");
+        using var rejectedResponse = await client.SendAsync(rejectedRequest);
+        Assert.IsFalse(
+            rejectedResponse.Headers.TryGetValues(
+                "Access-Control-Allow-Origin",
+                out _));
+    }
+
+    [TestMethod]
+    public async Task HungarianIdentityErrorDescriberIsRegistered()
+    {
+        await using var application = new ApiFactory(UnusedConnectionString);
+        _ = application.Server;
+        await using var scope = application.Services.CreateAsyncScope();
+        var describer = scope.ServiceProvider.GetRequiredService<IdentityErrorDescriber>();
+
+        Assert.Contains(
+            "már létezik",
+            describer.DuplicateEmail("teszt@example.invalid").Description,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "érvénytelen vagy lejárt",
+            describer.InvalidToken().Description,
+            StringComparison.OrdinalIgnoreCase);
     }
 }

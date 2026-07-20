@@ -158,6 +158,7 @@ public static class AuthEndpoints
     {
         var user = await dbContext.Users
             .AsNoTracking()
+            .Include(item => item.Organization)
             .Include(item => item.Employee)
             .Include(item => item.Permissions)
             .SingleOrDefaultAsync(
@@ -183,6 +184,8 @@ public static class AuthEndpoints
         return new SessionResponse(
             user.Id,
             user.OrganizationId,
+            user.Organization!.Name,
+            user.Organization.TimeZoneId,
             user.DisplayName,
             user.Email ?? string.Empty,
             user.Permissions

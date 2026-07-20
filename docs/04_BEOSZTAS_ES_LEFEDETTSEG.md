@@ -1,4 +1,4 @@
-# Beosztás és lefedettség
+# Beosztás és lefedettség – célviselkedés
 
 ## Alap
 

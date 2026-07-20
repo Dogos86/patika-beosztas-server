@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.Data;
+using System.Data.Common;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PatikaBeosztas.Application.Security;
@@ -21,6 +23,10 @@ public static class UserEndpoints
             .WithSummary("Felhasználói fiókok szervezeten belüli listázása")
             .Produces<PagedResponse<UserResponse>>()
             .ProducesStandardErrors();
+        group.MapGet("/{id:guid}", GetAsync)
+            .WithSummary("Felhasználói fiók részletes lekérése")
+            .Produces<UserResponse>()
+            .ProducesStandardErrors();
         group.MapPost("", CreateAsync)
             .RequireAntiforgery()
             .WithSummary("Helyi Identity-fiók létrehozása")
@@ -30,17 +36,17 @@ public static class UserEndpoints
             .RequireAntiforgery()
             .WithSummary("Felhasználói permissionök cseréje")
             .Produces<UserResponse>()
-            .ProducesStandardErrors();
+            .ProducesStandardErrors(includeConflict: true);
         group.MapPut("/{id:guid}/employee-link", UpdateEmployeeLinkAsync)
             .RequireAntiforgery()
             .WithSummary("Felhasználó és dolgozó összekapcsolása vagy leválasztása")
             .Produces<UserResponse>()
-            .ProducesStandardErrors();
+            .ProducesStandardErrors(includeConflict: true);
         group.MapPut("/{id:guid}/status", UpdateStatusAsync)
             .RequireAntiforgery()
             .WithSummary("Felhasználói fiók aktiválása vagy deaktiválása")
             .Produces<UserResponse>()
-            .ProducesStandardErrors();
+            .ProducesStandardErrors(includeConflict: true);
 
         return endpoints;
     }
@@ -96,6 +102,33 @@ public static class UserEndpoints
             page,
             pageSize,
             totalCount));
+    }
+
+    private static async Task<IResult> GetAsync(
+        Guid id,
+        HttpContext httpContext,
+        UserManager<ApplicationUser> userManager,
+        PatikaDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var actor = await EndpointHelpers.GetActorAsync(
+            httpContext,
+            userManager,
+            dbContext,
+            cancellationToken);
+        if (actor is null)
+        {
+            return EndpointHelpers.Unauthorized();
+        }
+
+        var user = await IncludeUserDetails(dbContext.Users.AsNoTracking())
+            .AsSplitQuery()
+            .SingleOrDefaultAsync(
+                item => item.Id == id && item.OrganizationId == actor.OrganizationId,
+                cancellationToken);
+        return user is null
+            ? EndpointHelpers.NotFound()
+            : Results.Ok(MapUser(user));
     }
 
     private static async Task<IResult> CreateAsync(
@@ -211,68 +244,97 @@ public static class UserEndpoints
             return EndpointHelpers.Unauthorized();
         }
 
-        var user = await IncludeUserDetails(dbContext.Users)
-            .AsSplitQuery()
-            .SingleOrDefaultAsync(
-                item => item.Id == id && item.OrganizationId == actor.OrganizationId,
-                cancellationToken);
-        if (user is null)
+        try
         {
-            return EndpointHelpers.NotFound();
-        }
-
-        var requestedPermissions = request.Permissions.Distinct().ToArray();
-        var removesManageUsers =
-            user.Permissions.Any(permission =>
-                permission.Permission == ApplicationPermission.ManageUsers) &&
-            !requestedPermissions.Contains(ApplicationPermission.ManageUsers);
-        if (user.IsActive &&
-            removesManageUsers &&
-            !await HasOtherActiveUserManagerAsync(
-                user.Id,
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(
+                IsolationLevel.ReadCommitted,
+                cancellationToken);
+            await LockOrganizationAsync(
                 actor.OrganizationId,
                 dbContext,
-                cancellationToken))
-        {
-            return EndpointHelpers.ValidationProblem(
-                [new ApiValidationError(
-                    "LAST_ACTIVE_USER_MANAGER",
-                    "A szervezetben legalább egy aktív ManageUsers jogosultságú felhasználónak maradnia kell.",
-                    "permissions")]);
-        }
+                cancellationToken);
 
-        var requestedSet = requestedPermissions.ToHashSet();
-        foreach (var existing in user.Permissions.ToArray())
-        {
-            if (!requestedSet.Remove(existing.Permission))
+            var user = await IncludeUserDetails(dbContext.Users)
+                .AsSplitQuery()
+                .SingleOrDefaultAsync(
+                    item => item.Id == id && item.OrganizationId == actor.OrganizationId,
+                    cancellationToken);
+            if (user is null)
             {
-                dbContext.UserPermissions.Remove(existing);
-                user.Permissions.Remove(existing);
+                return EndpointHelpers.NotFound();
             }
-        }
 
-        foreach (var permission in requestedSet)
-        {
-            user.Permissions.Add(new UserPermission
+            if (user.Version != request.ExpectedVersion)
             {
-                OrganizationId = actor.OrganizationId,
-                UserId = user.Id,
-                Permission = permission
-            });
+                return EndpointHelpers.Conflict(
+                    "A felhasználó adatai a lekérés óta megváltoztak. Töltse újra az adatokat.");
+            }
+
+            var requestedPermissions = request.Permissions.Distinct().ToArray();
+            var removesManageUsers =
+                user.Permissions.Any(permission =>
+                    permission.Permission == ApplicationPermission.ManageUsers) &&
+                !requestedPermissions.Contains(ApplicationPermission.ManageUsers);
+            if (user.IsActive &&
+                removesManageUsers &&
+                !await HasOtherActiveUserManagerAsync(
+                    user.Id,
+                    actor.OrganizationId,
+                    dbContext,
+                    cancellationToken))
+            {
+                return EndpointHelpers.ValidationProblem(
+                    [new ApiValidationError(
+                        "LAST_ACTIVE_USER_MANAGER",
+                        "A szervezetben legalább egy aktív ManageUsers jogosultságú felhasználónak maradnia kell.",
+                        "permissions")]);
+            }
+
+            var requestedSet = requestedPermissions.ToHashSet();
+            foreach (var existing in user.Permissions.ToArray())
+            {
+                if (!requestedSet.Remove(existing.Permission))
+                {
+                    dbContext.UserPermissions.Remove(existing);
+                    user.Permissions.Remove(existing);
+                }
+            }
+
+            foreach (var permission in requestedSet)
+            {
+                user.Permissions.Add(new UserPermission
+                {
+                    OrganizationId = actor.OrganizationId,
+                    UserId = user.Id,
+                    Permission = permission
+                });
+            }
+
+            user.UpdatedAtUtc = timeProvider.GetUtcNow();
+            auditWriter.Add(
+                actor.OrganizationId,
+                actor.Id,
+                "User.PermissionsUpdated",
+                "ApplicationUser",
+                user.Id.ToString(),
+                httpContext.TraceIdentifier,
+                "Felhasználói permissionök lecserélve.");
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return Results.Ok(MapUser(user));
         }
-
-        user.UpdatedAtUtc = timeProvider.GetUtcNow();
-        auditWriter.Add(
-            actor.OrganizationId,
-            actor.Id,
-            "User.PermissionsUpdated",
-            "ApplicationUser",
-            user.Id.ToString(),
-            httpContext.TraceIdentifier,
-            "Felhasználói permissionök lecserélve.");
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return Results.Ok(MapUser(user));
+        catch (DbUpdateConcurrencyException)
+        {
+            return EndpointHelpers.Conflict(
+                "A felhasználó adatai mentés közben megváltoztak. Töltse újra az adatokat.");
+        }
+        catch (DbException exception)
+            when (PostgreSqlErrorClassifier.IsTransactionConflict(exception))
+        {
+            return EndpointHelpers.Conflict(
+                "A párhuzamos adminisztrátori módosítás nem hajtható végre biztonságosan. Töltse újra az adatokat.");
+        }
     }
 
     private static async Task<IResult> UpdateEmployeeLinkAsync(
@@ -305,6 +367,12 @@ public static class UserEndpoints
             return EndpointHelpers.NotFound();
         }
 
+        if (user.Version != request.ExpectedVersion)
+        {
+            return EndpointHelpers.Conflict(
+                "A felhasználó adatai a lekérés óta megváltoztak. Töltse újra az adatokat.");
+        }
+
         var employeeError = await ValidateEmployeeLinkAsync(
             request.EmployeeId,
             user.Id,
@@ -328,7 +396,16 @@ public static class UserEndpoints
             request.EmployeeId is null
                 ? "Dolgozói kapcsolat megszüntetve."
                 : "Dolgozói kapcsolat beállítva.");
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return EndpointHelpers.Conflict(
+                "A felhasználó adatai mentés közben megváltoztak. Töltse újra az adatokat.");
+        }
+
         var employeeReference = dbContext.Entry(user).Reference(item => item.Employee);
         employeeReference.IsLoaded = false;
         await employeeReference.LoadAsync(cancellationToken);
@@ -356,47 +433,76 @@ public static class UserEndpoints
             return EndpointHelpers.Unauthorized();
         }
 
-        var user = await IncludeUserDetails(dbContext.Users)
-            .AsSplitQuery()
-            .SingleOrDefaultAsync(
-                item => item.Id == id && item.OrganizationId == actor.OrganizationId,
-                cancellationToken);
-        if (user is null)
+        try
         {
-            return EndpointHelpers.NotFound();
-        }
-
-        var hasManageUsers = user.Permissions.Any(permission =>
-            permission.Permission == ApplicationPermission.ManageUsers);
-        if (!request.IsActive &&
-            user.IsActive &&
-            hasManageUsers &&
-            !await HasOtherActiveUserManagerAsync(
-                user.Id,
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(
+                IsolationLevel.ReadCommitted,
+                cancellationToken);
+            await LockOrganizationAsync(
                 actor.OrganizationId,
                 dbContext,
-                cancellationToken))
-        {
-            return EndpointHelpers.ValidationProblem(
-                [new ApiValidationError(
-                    "LAST_ACTIVE_USER_MANAGER",
-                    "Az utolsó aktív ManageUsers jogosultságú felhasználó nem deaktiválható.",
-                    "isActive")]);
+                cancellationToken);
+
+            var user = await IncludeUserDetails(dbContext.Users)
+                .AsSplitQuery()
+                .SingleOrDefaultAsync(
+                    item => item.Id == id && item.OrganizationId == actor.OrganizationId,
+                    cancellationToken);
+            if (user is null)
+            {
+                return EndpointHelpers.NotFound();
+            }
+
+            if (user.Version != request.ExpectedVersion)
+            {
+                return EndpointHelpers.Conflict(
+                    "A felhasználó adatai a lekérés óta megváltoztak. Töltse újra az adatokat.");
+            }
+
+            var hasManageUsers = user.Permissions.Any(permission =>
+                permission.Permission == ApplicationPermission.ManageUsers);
+            if (!request.IsActive &&
+                user.IsActive &&
+                hasManageUsers &&
+                !await HasOtherActiveUserManagerAsync(
+                    user.Id,
+                    actor.OrganizationId,
+                    dbContext,
+                    cancellationToken))
+            {
+                return EndpointHelpers.ValidationProblem(
+                    [new ApiValidationError(
+                        "LAST_ACTIVE_USER_MANAGER",
+                        "Az utolsó aktív ManageUsers jogosultságú felhasználó nem deaktiválható.",
+                        "isActive")]);
+            }
+
+            user.IsActive = request.IsActive;
+            user.UpdatedAtUtc = timeProvider.GetUtcNow();
+            auditWriter.Add(
+                actor.OrganizationId,
+                actor.Id,
+                request.IsActive ? "User.Activated" : "User.Deactivated",
+                "ApplicationUser",
+                user.Id.ToString(),
+                httpContext.TraceIdentifier,
+                request.IsActive ? "Felhasználó aktiválva." : "Felhasználó deaktiválva.");
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return Results.Ok(MapUser(user));
         }
-
-        user.IsActive = request.IsActive;
-        user.UpdatedAtUtc = timeProvider.GetUtcNow();
-        auditWriter.Add(
-            actor.OrganizationId,
-            actor.Id,
-            request.IsActive ? "User.Activated" : "User.Deactivated",
-            "ApplicationUser",
-            user.Id.ToString(),
-            httpContext.TraceIdentifier,
-            request.IsActive ? "Felhasználó aktiválva." : "Felhasználó deaktiválva.");
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return Results.Ok(MapUser(user));
+        catch (DbUpdateConcurrencyException)
+        {
+            return EndpointHelpers.Conflict(
+                "A felhasználó adatai mentés közben megváltoztak. Töltse újra az adatokat.");
+        }
+        catch (DbException exception)
+            when (PostgreSqlErrorClassifier.IsTransactionConflict(exception))
+        {
+            return EndpointHelpers.Conflict(
+                "A párhuzamos adminisztrátori módosítás nem hajtható végre biztonságosan. Töltse újra az adatokat.");
+        }
     }
 
     private static IQueryable<ApplicationUser> IncludeUserDetails(
@@ -424,6 +530,7 @@ public static class UserEndpoints
                 .Select(permission => permission.Permission)
                 .Order()
                 .ToArray(),
+            user.Version,
             user.CreatedAtUtc,
             user.UpdatedAtUtc);
 
@@ -493,6 +600,18 @@ public static class UserEndpoints
                 "A dolgozó már másik felhasználóhoz kapcsolódik.",
                 "employeeId")
             : null;
+    }
+
+    private static async Task LockOrganizationAsync(
+        Guid organizationId,
+        PatikaDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        _ = await dbContext.Organizations
+            .FromSqlInterpolated(
+                $"""SELECT * FROM "Organizations" WHERE "Id" = {organizationId} FOR UPDATE""")
+            .AsNoTracking()
+            .SingleAsync(cancellationToken);
     }
 
     private static Task<bool> HasOtherActiveUserManagerAsync(

@@ -60,8 +60,12 @@ public sealed class PatikaDbContext(
         {
             entity.ToTable("Users");
             entity.Property(user => user.DisplayName).HasMaxLength(100);
+            entity.Property(user => user.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin");
+            entity.HasAlternateKey(user => new { user.OrganizationId, user.Id });
             entity.HasIndex(user => new { user.OrganizationId, user.IsActive });
-            entity.HasIndex(user => user.EmployeeId)
+            entity.HasIndex(user => new { user.OrganizationId, user.EmployeeId })
                 .IsUnique()
                 .HasFilter("\"EmployeeId\" IS NOT NULL");
             entity.HasOne(user => user.Organization)
@@ -70,7 +74,8 @@ public sealed class PatikaDbContext(
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(user => user.Employee)
                 .WithMany()
-                .HasForeignKey(user => user.EmployeeId)
+                .HasForeignKey(user => new { user.OrganizationId, user.EmployeeId })
+                .HasPrincipalKey(employee => new { employee.OrganizationId, employee.Id })
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -110,6 +115,7 @@ public sealed class PatikaDbContext(
             entity.Property(employee => employee.Version)
                 .IsRowVersion()
                 .HasColumnName("xmin");
+            entity.HasAlternateKey(employee => new { employee.OrganizationId, employee.Id });
             entity.HasIndex(employee => new { employee.OrganizationId, employee.IsActive });
             entity.HasIndex(employee => new { employee.OrganizationId, employee.DisplayName });
             entity.HasIndex(employee => new { employee.OrganizationId, employee.ExternalPayrollId });
@@ -132,6 +138,7 @@ public sealed class PatikaDbContext(
             entity.Property(location => location.Version)
                 .IsRowVersion()
                 .HasColumnName("xmin");
+            entity.HasAlternateKey(location => new { location.OrganizationId, location.Id });
             entity.HasIndex(location => new { location.OrganizationId, location.IsActive });
             entity.HasIndex(location => new { location.OrganizationId, location.Name });
             entity.HasOne(location => location.Organization)
@@ -150,11 +157,13 @@ public sealed class PatikaDbContext(
             entity.HasIndex(item => new { item.OrganizationId, item.LocationId });
             entity.HasOne(item => item.Employee)
                 .WithMany(employee => employee.Locations)
-                .HasForeignKey(item => item.EmployeeId)
+                .HasForeignKey(item => new { item.OrganizationId, item.EmployeeId })
+                .HasPrincipalKey(employee => new { employee.OrganizationId, employee.Id })
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(item => item.Location)
                 .WithMany(location => location.Employees)
-                .HasForeignKey(item => item.LocationId)
+                .HasForeignKey(item => new { item.OrganizationId, item.LocationId })
+                .HasPrincipalKey(location => new { location.OrganizationId, location.Id })
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -166,7 +175,8 @@ public sealed class PatikaDbContext(
             entity.HasIndex(window => new { window.OrganizationId, window.EmployeeId });
             entity.HasOne(window => window.Employee)
                 .WithMany(employee => employee.TimeWindows)
-                .HasForeignKey(window => window.EmployeeId)
+                .HasForeignKey(window => new { window.OrganizationId, window.EmployeeId })
+                .HasPrincipalKey(employee => new { employee.OrganizationId, employee.Id })
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -178,7 +188,8 @@ public sealed class PatikaDbContext(
             entity.HasIndex(item => new { item.OrganizationId, item.EmployeeId });
             entity.HasOne(item => item.Employee)
                 .WithMany(employee => employee.AllowedTimeTypes)
-                .HasForeignKey(item => item.EmployeeId)
+                .HasForeignKey(item => new { item.OrganizationId, item.EmployeeId })
+                .HasPrincipalKey(employee => new { employee.OrganizationId, employee.Id })
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }
@@ -193,7 +204,8 @@ public sealed class PatikaDbContext(
             entity.HasIndex(item => new { item.OrganizationId, item.Permission });
             entity.HasOne<ApplicationUser>()
                 .WithMany(user => user.Permissions)
-                .HasForeignKey(item => item.UserId)
+                .HasForeignKey(item => new { item.OrganizationId, item.UserId })
+                .HasPrincipalKey(user => new { user.OrganizationId, user.Id })
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasOne<Organization>()
                 .WithMany()

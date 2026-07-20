@@ -17,6 +17,8 @@ public sealed class ApplicationUser : IdentityUser<Guid>
 
     public DateTimeOffset UpdatedAtUtc { get; set; }
 
+    public uint Version { get; private set; }
+
     public Organization? Organization { get; set; }
 
     public Employee? Employee { get; set; }

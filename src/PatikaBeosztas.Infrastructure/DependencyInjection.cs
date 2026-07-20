@@ -38,6 +38,7 @@ public static class DependencyInjection
                 options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
             })
             .AddEntityFrameworkStores<PatikaDbContext>()
+            .AddErrorDescriber<HungarianIdentityErrorDescriber>()
             .AddDefaultTokenProviders();
 
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();

@@ -1,10 +1,12 @@
 openapi: 3.1.0
 info:
   title: Patika Beosztás API
-  version: 0.1.0-phase1
+  version: 0.1.5-phase1-hardening
   description: >-
-    Az 1. fázis frontend–backend szerződése. A futó backend
+    Az 1.5 hardening fázis frontend–backend szerződése. A futó backend
     /openapi/v1.json dokumentuma a generált frontend típusok végleges forrása.
+    A frontend HTTPS-en, az API-val azonos site alatt fusson, és a cookie-s
+    kérésekhez credentials: include beállítást használjon.
 servers:
   - url: /
 tags:
@@ -285,6 +287,22 @@ paths:
                 $ref: '#/components/schemas/UserResponse'
         '422':
           $ref: '#/components/responses/Problem'
+  /api/admin/users/{id}:
+    get:
+      tags: [Users]
+      summary: Felhasználó részletes lekérése
+      x-required-permission: ManageUsers
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+      responses:
+        '200':
+          description: Felhasználó
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
   /api/admin/users/{id}/permissions:
     put:
       tags: [Users]
@@ -299,13 +317,16 @@ paths:
           application/json:
             schema:
               type: object
-              required: [permissions]
+              required: [permissions, expectedVersion]
               properties:
                 permissions:
                   type: array
                   uniqueItems: true
                   items:
                     $ref: '#/components/schemas/ApplicationPermission'
+                expectedVersion:
+                  type: integer
+                  minimum: 1
       responses:
         '200':
           description: Módosított felhasználó
@@ -314,6 +335,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserResponse'
         '422':
+          $ref: '#/components/responses/Problem'
+        '409':
           $ref: '#/components/responses/Problem'
   /api/admin/users/{id}/employee-link:
     put:
@@ -329,11 +352,14 @@ paths:
           application/json:
             schema:
               type: object
-              required: [employeeId]
+              required: [employeeId, expectedVersion]
               properties:
                 employeeId:
                   type: [string, 'null']
                   format: uuid
+                expectedVersion:
+                  type: integer
+                  minimum: 1
       responses:
         '200':
           description: Módosított felhasználó
@@ -342,6 +368,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserResponse'
         '422':
+          $ref: '#/components/responses/Problem'
+        '409':
           $ref: '#/components/responses/Problem'
   /api/admin/users/{id}/status:
     put:
@@ -357,10 +385,13 @@ paths:
           application/json:
             schema:
               type: object
-              required: [isActive]
+              required: [isActive, expectedVersion]
               properties:
                 isActive:
                   type: boolean
+                expectedVersion:
+                  type: integer
+                  minimum: 1
       responses:
         '200':
           description: Módosított felhasználó
@@ -369,6 +400,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserResponse'
         '422':
+          $ref: '#/components/responses/Problem'
+        '409':
           $ref: '#/components/responses/Problem'
 components:
   securitySchemes:
@@ -519,6 +552,8 @@ components:
       required:
         - userId
         - organizationId
+        - organizationName
+        - organizationTimeZoneId
         - displayName
         - email
         - permissions
@@ -526,6 +561,10 @@ components:
       properties:
         userId: { type: string, format: uuid }
         organizationId: { type: string, format: uuid }
+        organizationName: { type: string }
+        organizationTimeZoneId:
+          type: string
+          example: Europe/Budapest
         displayName: { type: string }
         email: { type: string, format: email }
         permissions:
@@ -573,9 +612,12 @@ components:
         isSchedulable: { type: boolean }
         includeInAutoFill: { type: boolean }
         countsAsPharmacist: { type: boolean }
-        monthlyMinutesLimit: { type: [integer, 'null'], minimum: 0 }
-        maxDailyMinutes: { type: [integer, 'null'], minimum: 0 }
-        birthDate: { type: [string, 'null'], format: date }
+        monthlyMinutesLimit: { type: [integer, 'null'], minimum: 1, maximum: 44640 }
+        maxDailyMinutes: { type: [integer, 'null'], minimum: 1, maximum: 1440 }
+        birthDate:
+          type: [string, 'null']
+          format: date
+          description: Nem lehet jövőbeli; a legkorábbi elfogadott dátum 1900-01-01.
         externalPayrollId: { type: [string, 'null'], maxLength: 100 }
         locations:
           type: [array, 'null']
@@ -725,6 +767,7 @@ components:
         - isActive
         - linkedEmployee
         - permissions
+        - version
         - createdAtUtc
         - updatedAtUtc
       properties:
@@ -740,6 +783,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ApplicationPermission'
+        version: { type: integer, minimum: 1 }
         createdAtUtc: { type: string, format: date-time }
         updatedAtUtc: { type: string, format: date-time }
     PagedEmployees:

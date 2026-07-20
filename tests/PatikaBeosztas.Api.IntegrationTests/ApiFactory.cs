@@ -76,6 +76,8 @@ internal static class IntegrationTestData
         Guid.Parse("83000000-0000-0000-0000-000000000004");
     public static readonly Guid OtherLocationId =
         Guid.Parse("84000000-0000-0000-0000-000000000001");
+    public static readonly Guid LocalLocationId =
+        Guid.Parse("84000000-0000-0000-0000-000000000002");
 
     public static async Task SeedAsync(IServiceProvider services)
     {
@@ -139,16 +141,27 @@ internal static class IntegrationTestData
                 true,
                 false,
                 now));
-        dbContext.Locations.Add(new Location
-        {
-            Id = OtherLocationId,
-            OrganizationId = OtherOrganizationId,
-            Name = "Másik szervezet telephelye",
-            Type = LocationType.Central,
-            IsActive = true,
-            CreatedAtUtc = now,
-            UpdatedAtUtc = now
-        });
+        dbContext.Locations.AddRange(
+            new Location
+            {
+                Id = OtherLocationId,
+                OrganizationId = OtherOrganizationId,
+                Name = "Másik szervezet telephelye",
+                Type = LocationType.Central,
+                IsActive = true,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
+            },
+            new Location
+            {
+                Id = LocalLocationId,
+                OrganizationId = OrganizationId,
+                Name = "Helyi teszt telephely",
+                Type = LocationType.Central,
+                IsActive = true,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
+            });
         await dbContext.SaveChangesAsync();
 
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();

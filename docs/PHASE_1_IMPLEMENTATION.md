@@ -26,6 +26,12 @@ API. Minden Employee, Location és ApplicationUser query explicit
 `OrganizationId == actor.OrganizationId` feltételt tartalmaz; nincs kizárólagos
 global query filterre hagyatkozás. Más szervezet ismert GUID-ja 404-et ad.
 
+A Phase 1.5 migráció kompozit alternate key / foreign key kapcsolatokat is
+bevezetett az ApplicationUser–Employee, EmployeeLocation–Employee/Location,
+EmployeeTimeWindow–Employee, EmployeeAllowedTimeType–Employee és
+UserPermission–ApplicationUser kapcsolatokhoz. Így közvetlen EF mentés sem
+hozhat létre szervezetek közötti kapcsolatot.
+
 A permission policy handler minden kérésnél az adatbázisból ellenőrzi, hogy:
 
 - a user aktív;
@@ -46,11 +52,19 @@ antiforgery megoldása: a request token a `GET /api/auth/csrf` válaszában jön
 A Development CORS allowlist konfigurációból érkezik, credentialst enged, és
 nem használ `AllowAnyOrigin` beállítást.
 
+A frontendnek minden cookie-t használó kéréshez `credentials: "include"`
+szükséges. A céltelepítésben a PWA és az API HTTPS-en, azonos site alatt fut.
+
 ## Konkurencia és inaktív telephely
 
-Employee és Location a PostgreSQL `xmin` rendszeroszlopot használja
-concurrency tokenként. A PUT request `expectedVersion` értéket kér; eltérés és
-EF concurrency exception 409 ProblemDetails választ ad.
+Employee, Location és ApplicationUser a PostgreSQL `xmin` rendszeroszlopot
+használja concurrency tokenként. A releváns PUT request `expectedVersion`
+értéket kér; eltérés és EF concurrency exception egységes
+`409 CONCURRENCY_CONFLICT` ProblemDetails választ ad.
+
+Az aktív `ManageUsers` fiók elvesztését permission- és státuszmutációnál közös
+szervezet-sorzár védi tranzakción belül. A konkurens módosítások sorba állnak;
+deadlock vagy serialization failure kontrollált 409 választ ad.
 
 Az inaktív telephely nem törlődik: listázható `includeInactive=true` mellett és
 szerkeszthető marad. A későbbi coverage/autofill rétegnek kötelező lesz
@@ -76,3 +90,8 @@ Az első fázis admin API-ja kezdeti jelszóval hoz létre helyi Identity-fióko
 Meghívó, email-küldés, jelszó-visszaállítás és MFA még nincs. Production
 bevezetés előtt ezeket, a provisioninget és a vészhelyzeti admin eljárást
 külön dönteni és implementálni kell.
+
+## Phase 1.5
+
+A hardening részletes szerződése, migrációja, validációs határai és production
+checklistje: `docs/PHASE_1_5_HARDENING.md`.

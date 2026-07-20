@@ -8,8 +8,13 @@ public static class InputValidation
     public static IReadOnlyList<ApiValidationError> ValidateEmployee(
         string fullName,
         string displayName,
+        bool isActive,
+        bool isSchedulable,
+        bool includeInAutoFill,
         int? monthlyMinutesLimit,
         int? maxDailyMinutes,
+        DateOnly? birthDate,
+        DateOnly currentDate,
         string? externalPayrollId,
         IReadOnlyList<EmployeeLocationRequest>? locations,
         IReadOnlyList<EmployeeTimeWindowRequest>? windows,
@@ -20,21 +25,24 @@ public static class InputValidation
         ValidateRequiredText(fullName, 200, "fullName", errors);
         ValidateRequiredText(displayName, 100, "displayName", errors);
 
-        if (monthlyMinutesLimit is < 0)
-        {
-            errors.Add(new(
-                "MONTHLY_MINUTES_NEGATIVE",
-                "A havi perclimit nem lehet negatív.",
-                "monthlyMinutesLimit"));
-        }
-
-        if (maxDailyMinutes is < 0)
-        {
-            errors.Add(new(
-                "MAX_DAILY_MINUTES_NEGATIVE",
-                "A napi perclimit nem lehet negatív.",
-                "maxDailyMinutes"));
-        }
+        errors.AddRange(EmployeeRules.ValidateConfiguration(
+                isActive,
+                isSchedulable,
+                includeInAutoFill,
+                monthlyMinutesLimit,
+                maxDailyMinutes,
+                birthDate,
+                currentDate)
+            .Select(issue => new ApiValidationError(
+                issue.Code,
+                issue.Message,
+                issue.Code switch
+                {
+                    "MONTHLY_MINUTES_OUT_OF_RANGE" => "monthlyMinutesLimit",
+                    "MAX_DAILY_MINUTES_OUT_OF_RANGE" => "maxDailyMinutes",
+                    "BIRTH_DATE_TOO_EARLY" or "BIRTH_DATE_IN_FUTURE" => "birthDate",
+                    _ => "includeInAutoFill"
+                })));
 
         if (externalPayrollId?.Length > 100)
         {
