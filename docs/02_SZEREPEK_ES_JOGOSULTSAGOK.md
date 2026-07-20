@@ -3,14 +3,21 @@
 ## Két külön dimenzió
 
 ### Application permissions
-- EmployeeSelfService
-- ScheduleViewOwn
-- LeaveRequestOwn
-- ScheduleManage
-- LeaveApprove
-- EmployeeManage
-- OrganizationAdmin
-- AuditView
+- ViewOwnSchedule
+- ManageOwnLeaveRequests
+- ManageAllLeaveRequests
+- ApproveLeaveRequests
+- ManageEmployees
+- ManageLocations
+- ManageCoverageRules
+- ManageSchedules
+- RunAutoFill
+- UseAiAssistant
+- ManageUsers
+
+Az 1. fázis API-ja ezek közül a `ManageEmployees`, `ManageLocations` és
+`ManageUsers` policy-ket használja. A többi permission a következő
+vertikális szeletek stabil neve.
 
 ### Professional roles
 - PharmacyManager

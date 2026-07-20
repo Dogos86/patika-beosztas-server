@@ -36,4 +36,4 @@ Minden elem kerüljön egyik kategóriába:
 7. Összehasonlító teszt: régi és új validáció/generálás.
 8. Csak ezután UI-integráció.
 
-A `legacy/current-winforms` forrását az audit első fázisában ne módosítsd.
+A `legacy/current_winforms` forrását ne módosítsd.

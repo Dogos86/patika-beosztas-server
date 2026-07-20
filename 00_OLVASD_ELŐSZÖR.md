@@ -6,7 +6,7 @@ Ez a csomag a **VS Code + Codex** számára készült. A cél az ASP.NET Core .N
 
 1. Hozz létre vagy klónozz egy üres GitHub repót, például `patika-beosztas-server` néven.
 2. Csomagold ki ezt a csomagot a repository gyökerébe.
-3. A legfrissebb működő WinForms projektet másold a `legacy/current-winforms/` mappába. Az eredeti forrás maradjon érintetlen.
+3. A legfrissebb működő WinForms projekt referenciahelye a tényleges `legacy/current_winforms/` mappa. Az eredeti forrás maradjon érintetlen.
 4. Nyisd meg a repositoryt VS Code-ban.
 5. A Codexnek először a `prompts/00_FAZIS_AUDIT_ES_SKELETON.md` teljes szövegét add át.
 6. Az első feladat csak felmérés, karakterizációs tesztek és buildelő solution skeleton. Ne kérd rögtön az egész rendszer megírását.

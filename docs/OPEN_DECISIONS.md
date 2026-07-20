@@ -6,18 +6,12 @@ kódbázis- és migrációs döntéseket rögzíti az `AGENTS.md` által előír
 
 ## Repository és provenance
 
-### AUD-001 – Canonical legacy könyvtár és solution
+### AUD-001 – Canonical legacy könyvtár és solution – lezárva az 1. fázisban
 
-A dokumentált `legacy/current-winforms/` helyett `legacy/current_winforms/`
-létezik. A felső solution hibás, a működő solution két szinttel beljebb van.
-
-Döntés kell:
-
-- igazítsuk-e később a könyvtárnevet a dokumentációhoz;
-- melyik solution legyen canonical;
-- a hibás felső solution és a ZIP megőrzendő archívum-e.
-
-A 0. fázisban egyik legacy fájl sem nevezhető át vagy törölhető.
+A tényleges `legacy/current_winforms/` név lett dokumentálva, átnevezés nélkül.
+A canonical referencia a két szinttel beljebb található, buildelhető
+`PharmacyScheduler.sln`. A hibás felső solution és a ZIP archívumként megmarad,
+de az új build nem hivatkozik rá. Legacy fájl nem módosult.
 
 ### AUD-002 – A legacy példány „legfrissebb” státusza
 
@@ -71,8 +65,9 @@ a könyvelői igényeket, valamint azt, hogy exportálható-e Draft beosztás.
 
 ## Hitelesítés és üzemeltetés
 
-Az `docs/adr/0001-authentication-proposal.md` csak javaslat. Elfogadása előtt
-válasz kell legalább ezekre:
+Az 1. fázis aktív promptja az első implementációra ASP.NET Core Identity +
+same-origin cookie megoldást rögzített. Hosszabb távú production döntéshez
+továbbra is válasz kell legalább ezekre:
 
 - internetes vagy csak patikai hálózati elérés;
 - API/PostgreSQL hosting;
@@ -80,4 +75,3 @@ válasz kell legalább ezekre:
 - felhasználói provisioning/deprovisioning;
 - vészhelyzeti admin hozzáférés;
 - session megőrzési és visszavonási követelmények.
-

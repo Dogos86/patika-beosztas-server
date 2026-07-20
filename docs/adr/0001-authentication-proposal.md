@@ -1,6 +1,6 @@
 # ADR-0001 – Hitelesítési és munkamenet-kezelési javaslat
 
-- Állapot: Javaslat
+- Állapot: Részben felülírva az 1. fázis aktív termékdöntésével
 - Dátum: 2026-07-20
 - Érintett fázis: 1 – szervezet, auth és jogosultság
 
@@ -74,9 +74,10 @@ Alapértelmezett irány az **A lehetőség**:
 - rate limit a bejelentkezési felületen;
 - sem access token, sem service secret nem kerül böngésző storage-ba.
 
-Ha igazoltan nincs használható IdP és a rendszer zárt hálózaton működik, a
-**B lehetőség** lehet a jóváhagyott fallback, ugyanazzal a cookie-, CSRF- és
-authorization-modellel.
+Az 1. fázis aktív promptja a **B lehetőséget** rögzítette első
+implementációként: ASP.NET Core Identity email/jelszó és same-origin cookie,
+ugyanazzal a cookie-, CSRF- és authorization-modellel. Ez a fázisdöntés nem
+zárja le a production OIDC/MFA és hosting későbbi értékelését.
 
 ## Következmények
 
@@ -89,4 +90,3 @@ authorization-modellel.
   csak szűk allowlisttel adható.
 - Az auth megvalósítása előtt dönteni kell a hálózati elérésről, hostingról,
   IdP-ről, felhasználói provisioningről és vészhelyzeti admin hozzáférésről.
-

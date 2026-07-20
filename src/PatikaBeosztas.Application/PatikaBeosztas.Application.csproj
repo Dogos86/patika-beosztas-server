@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <ProjectReference Include="../PatikaBeosztas.Contracts/PatikaBeosztas.Contracts.csproj" />
     <ProjectReference Include="../PatikaBeosztas.Domain/PatikaBeosztas.Domain.csproj" />
   </ItemGroup>
 </Project>
-

@@ -1,344 +1,375 @@
 openapi: 3.1.0
 info:
-  title: Patika Beosztás API – szerződésvázlat
-  version: 0.1.0-draft
+  title: Patika Beosztás API
+  version: 0.1.0-phase1
   description: >-
-    Közös frontend–backend szerződésvázlat. Nem teljes implementáció és nem végleges.
-    A backend OpenAPI dokumentuma lesz a későbbi hiteles forrás.
+    Az 1. fázis frontend–backend szerződése. A futó backend
+    /openapi/v1.json dokumentuma a generált frontend típusok végleges forrása.
 servers:
-  - url: /api
-security:
-  - cookieAuth: []
+  - url: /
 tags:
   - name: Auth
-  - name: Me
-  - name: LeaveRequests
-  - name: Schedules
   - name: Employees
   - name: Locations
-  - name: Coverage
-  - name: AiAssistant
+  - name: Users
 paths:
-  /auth/session:
+  /api/auth/csrf:
     get:
       tags: [Auth]
-      summary: Aktuális bejelentkezési munkamenet
+      summary: CSRF-token kérése
+      security: []
       responses:
         '200':
-          description: Bejelentkezett felhasználó
+          description: Token és a küldendő header neve
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SessionDto'
-        '401':
-          description: Nincs bejelentkezve
-  /me/schedule:
-    get:
-      tags: [Me]
-      summary: Saját beosztás lekérése
-      parameters:
-        - in: query
-          name: from
-          required: true
-          schema: { type: string, format: date }
-        - in: query
-          name: to
-          required: true
-          schema: { type: string, format: date }
-      responses:
-        '200':
-          description: Saját műszakok
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/ShiftDto' }
-  /me/leave-requests:
-    get:
-      tags: [LeaveRequests]
-      summary: Saját kérelmek listázása
-      responses:
-        '200':
-          description: Kérelmek
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/LeaveRequestDto' }
+                $ref: '#/components/schemas/CsrfTokenResponse'
+  /api/auth/login:
     post:
-      tags: [LeaveRequests]
-      summary: Saját kérelem vagy betegállomány-bejelentés létrehozása
+      tags: [Auth]
+      summary: Email/jelszó bejelentkezés
+      security: []
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/CreateOwnLeaveRequest' }
-      responses:
-        '201':
-          description: Létrehozva
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/LeaveRequestDto' }
-        '400': { description: Hibás kérés }
-        '409': { description: Ütközés vagy konkurens módosítás }
-  /me/leave-requests/{id}/withdraw:
-    post:
-      tags: [LeaveRequests]
-      summary: Saját függő kérelem visszavonása
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-        - $ref: '#/components/parameters/IdempotencyKey'
-      responses:
-        '204': { description: Visszavonva }
-        '403': { description: Nincs jogosultság }
-        '409': { description: Már nem vonható vissza }
-  /admin/leave-requests:
-    get:
-      tags: [LeaveRequests]
-      summary: Admin kérelmek listázása
-      parameters:
-        - in: query
-          name: status
-          schema: { $ref: '#/components/schemas/LeaveRequestStatus' }
-      responses:
-        '200':
-          description: Kérelmek
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/LeaveRequestDto' }
-    post:
-      tags: [LeaveRequests]
-      summary: Kérelem vagy távollét rögzítése más dolgozó nevében
-      parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/CreateLeaveForEmployee' }
-      responses:
-        '201':
-          description: Létrehozva
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/LeaveRequestDto' }
-  /admin/leave-requests/{id}/decision:
-    post:
-      tags: [LeaveRequests]
-      summary: Kérelem jóváhagyása vagy elutasítása
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/LeaveDecisionRequest' }
-      responses:
-        '200':
-          description: Döntés rögzítve
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/LeaveRequestDto' }
-        '403': { description: Nincs jogosultság }
-        '409': { description: Státusz vagy verzióütközés }
-  /schedules:
-    get:
-      tags: [Schedules]
-      summary: Beosztási időszakok listázása
-      responses:
-        '200':
-          description: Beosztások
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/ScheduleDto' }
-    post:
-      tags: [Schedules]
-      summary: Új beosztási időszak létrehozása
-      parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [name, periodStart, periodEnd]
-              properties:
-                name: { type: string, minLength: 1, maxLength: 200 }
-                periodStart: { type: string, format: date }
-                periodEnd: { type: string, format: date }
+              $ref: '#/components/schemas/LoginRequest'
       responses:
-        '201':
-          description: Létrehozva
+        '200':
+          description: Sikeres munkamenet
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ScheduleDto' }
-  /schedules/{scheduleId}/shifts:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '429':
+          description: A login rate limit kimerült
+  /api/auth/logout:
     post:
-      tags: [Schedules]
-      summary: Műszak hozzáadása
+      tags: [Auth]
+      summary: Kijelentkezés
       parameters:
-        - in: path
-          name: scheduleId
-          required: true
-          schema: { type: string, format: uuid }
-        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: Kijelentkezve
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+  /api/auth/session:
+    get:
+      tags: [Auth]
+      summary: Aktuális munkamenet
+      responses:
+        '200':
+          description: Aktív felhasználó munkamenete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          $ref: '#/components/responses/Problem'
+  /api/admin/employees:
+    get:
+      tags: [Employees]
+      summary: Dolgozók listázása
+      x-required-permission: ManageEmployees
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/IncludeInactive'
+      responses:
+        '200':
+          description: Lapozott dolgozólista
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedEmployees'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [Employees]
+      summary: Dolgozó létrehozása
+      x-required-permission: ManageEmployees
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/UpsertShiftRequest' }
+            schema:
+              $ref: '#/components/schemas/CreateEmployeeRequest'
       responses:
         '201':
-          description: Létrehozva
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ShiftDto' }
-        '422':
-          description: Üzleti szabályhiba
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ValidationProblemDto' }
-  /schedules/{scheduleId}/validate:
-    post:
-      tags: [Schedules]
-      summary: Beosztás ellenőrzése
-      parameters:
-        - in: path
-          name: scheduleId
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Ellenőrzési eredmény
+          description: Létrehozott dolgozó
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: '#/components/schemas/ScheduleIssueDto' }
-  /schedules/{scheduleId}/approve:
-    post:
-      tags: [Schedules]
-      summary: Beosztás jóváhagyása
-      parameters:
-        - in: path
-          name: scheduleId
-          required: true
-          schema: { type: string, format: uuid }
-        - $ref: '#/components/parameters/IdempotencyKey'
-      responses:
-        '200':
-          description: Jóváhagyva
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ScheduleDto' }
+                $ref: '#/components/schemas/EmployeeResponse'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
         '422':
-          description: Blokkoló szabályok miatt nem hagyható jóvá
-  /employees:
+          $ref: '#/components/responses/Problem'
+  /api/admin/employees/{id}:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
     get:
       tags: [Employees]
-      summary: Dolgozók listázása adminnak/beosztáskészítőnek
+      summary: Dolgozó lekérése
+      x-required-permission: ManageEmployees
       responses:
         '200':
-          description: Dolgozók
+          description: Dolgozó
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: '#/components/schemas/EmployeeDto' }
-  /locations:
+                $ref: '#/components/schemas/EmployeeResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+    put:
+      tags: [Employees]
+      summary: Dolgozó módosítása vagy deaktiválása
+      x-required-permission: ManageEmployees
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEmployeeRequest'
+      responses:
+        '200':
+          description: Módosított dolgozó
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeResponse'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /api/admin/locations:
     get:
       tags: [Locations]
       summary: Telephelyek listázása
+      x-required-permission: ManageLocations
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/IncludeInactive'
       responses:
         '200':
-          description: Telephelyek
+          description: Lapozott telephelylista
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: '#/components/schemas/LocationDto' }
-  /coverage-rules:
+                $ref: '#/components/schemas/PagedLocations'
+        '403':
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [Locations]
+      summary: Telephely létrehozása
+      x-required-permission: ManageLocations
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLocationRequest'
+      responses:
+        '201':
+          description: Létrehozott telephely
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationResponse'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/admin/locations/{id}:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
     get:
-      tags: [Coverage]
-      summary: Lefedettségi szabályok listázása
+      tags: [Locations]
+      summary: Telephely lekérése
+      x-required-permission: ManageLocations
       responses:
         '200':
-          description: Szabályok
+          description: Telephely
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: '#/components/schemas/CoverageRuleDto' }
-  /ai/interpret:
-    post:
-      tags: [AiAssistant]
-      summary: Gépelt vagy átírt utasítás értelmezése; csak előnézetet készít
+                $ref: '#/components/schemas/LocationResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+    put:
+      tags: [Locations]
+      summary: Telephely módosítása vagy deaktiválása
+      x-required-permission: ManageLocations
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLocationRequest'
+      responses:
+        '200':
+          description: Módosított telephely
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/admin/users:
+    get:
+      tags: [Users]
+      summary: Felhasználók listázása
+      x-required-permission: ManageUsers
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/IncludeInactive'
+      responses:
+        '200':
+          description: Lapozott felhasználólista
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedUsers'
+        '403':
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [Users]
+      summary: Helyi Identity-fiók létrehozása
+      x-required-permission: ManageUsers
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: Létrehozott felhasználó
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/admin/users/{id}/permissions:
+    put:
+      tags: [Users]
+      summary: Permissionök teljes cseréje
+      x-required-permission: ManageUsers
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+        - $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [text, clientTimeZone]
+              required: [permissions]
               properties:
-                text: { type: string, minLength: 1, maxLength: 10000 }
-                clientTimeZone: { type: string, const: Europe/Budapest }
-                contextScheduleId: { type: [string, 'null'], format: uuid }
+                permissions:
+                  type: array
+                  uniqueItems: true
+                  items:
+                    $ref: '#/components/schemas/ApplicationPermission'
       responses:
         '200':
-          description: Értelmezési előnézet
+          description: Módosított felhasználó
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/AiCommandPreviewDto' }
-  /ai/previews/{previewId}/execute:
-    post:
-      tags: [AiAssistant]
-      summary: Korábban validált AI-előnézet explicit végrehajtása
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/admin/users/{id}/employee-link:
+    put:
+      tags: [Users]
+      summary: Dolgozói kapcsolat beállítása vagy törlése
+      x-required-permission: ManageUsers
       parameters:
-        - in: path
-          name: previewId
-          required: true
-          schema: { type: string, format: uuid }
-        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/EntityId'
+        - $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [confirmationToken]
+              required: [employeeId]
               properties:
-                confirmationToken: { type: string }
+                employeeId:
+                  type: [string, 'null']
+                  format: uuid
       responses:
         '200':
-          description: Végrehajtási eredmény
+          description: Módosított felhasználó
           content:
             application/json:
               schema:
-                type: object
-                required: [succeeded, affectedEntityIds]
-                properties:
-                  succeeded: { type: boolean }
-                  affectedEntityIds:
-                    type: array
-                    items: { type: string, format: uuid }
-        '409': { description: Az előnézet lejárt vagy az adatok megváltoztak }
+                $ref: '#/components/schemas/UserResponse'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/admin/users/{id}/status:
+    put:
+      tags: [Users]
+      summary: Felhasználó aktiválása vagy deaktiválása
+      x-required-permission: ManageUsers
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [isActive]
+              properties:
+                isActive:
+                  type: boolean
+      responses:
+        '200':
+          description: Módosított felhasználó
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '422':
+          $ref: '#/components/responses/Problem'
 components:
   securitySchemes:
     cookieAuth:
@@ -346,215 +377,403 @@ components:
       in: cookie
       name: __Host-PatikaSession
   parameters:
-    IdempotencyKey:
+    CsrfToken:
       in: header
-      name: Idempotency-Key
+      name: X-CSRF-TOKEN
       required: true
-      schema: { type: string, minLength: 16, maxLength: 200 }
+      schema:
+        type: string
+    EntityId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      in: query
+      name: page
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      in: query
+      name: pageSize
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+    Search:
+      in: query
+      name: search
+      schema:
+        type: [string, 'null']
+    IncludeInactive:
+      in: query
+      name: includeInactive
+      schema:
+        type: boolean
+        default: false
+  responses:
+    Problem:
+      description: RFC 7807 ProblemDetails
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
   schemas:
-    SessionDto:
-      type: object
-      required: [userId, displayName, permissions, employee]
-      properties:
-        userId: { type: string, format: uuid }
-        displayName: { type: string }
-        permissions:
-          type: array
-          items: { $ref: '#/components/schemas/ApplicationPermission' }
-        employee:
-          oneOf:
-            - $ref: '#/components/schemas/EmployeeSummaryDto'
-            - type: 'null'
     ApplicationPermission:
       type: string
-      enum: [EmployeeSelfService, ScheduleViewOwn, LeaveRequestOwn, ScheduleManage, LeaveApprove, EmployeeManage, OrganizationAdmin, AuditView]
+      enum:
+        - ViewOwnSchedule
+        - ManageOwnLeaveRequests
+        - ManageAllLeaveRequests
+        - ApproveLeaveRequests
+        - ManageEmployees
+        - ManageLocations
+        - ManageCoverageRules
+        - ManageSchedules
+        - RunAutoFill
+        - UseAiAssistant
+        - ManageUsers
     ProfessionalRole:
       type: string
-      enum: [PharmacyManager, Pharmacist, SpecialistAssistant, Assistant, PharmacistTrainee, AssistantTrainee, Cleaner, FinanceHelper, Other]
-    LeaveType:
+      enum:
+        - PharmacyManager
+        - Pharmacist
+        - SpecialistAssistant
+        - Assistant
+        - PharmacistTrainee
+        - AssistantTrainee
+        - Cleaner
+        - FinanceHelper
+        - Other
+    LocationType:
       type: string
-      enum: [AnnualLeave, SickLeave, UnpaidLeave, MaternityLeave, ParentalLeave, Other]
-    LeaveRequestStatus:
+      enum: [Central, Branch]
+    EmployeeTimeWindowType:
       type: string
-      enum: [Draft, Pending, Approved, Rejected, Withdrawn, Cancelled, Reported, Recorded, Closed]
-    ScheduleStatus:
+      enum: [Preferred, Forbidden]
+    TimeType:
       type: string
-      enum: [Draft, Approved, Archived]
-    RuleSeverity:
-      type: string
-      enum: [Warning, Blocking]
-    EmployeeSummaryDto:
+      enum:
+        - Work
+        - Overtime
+        - OnCallDuty
+        - Standby
+        - AnnualLeave
+        - SickLeave
+        - UnpaidLeave
+        - ParentalLeave
+        - Other
+    ProblemDetails:
       type: object
-      required: [id, displayName, professionalRole]
+      properties:
+        type:
+          type: [string, 'null']
+        title:
+          type: [string, 'null']
+        status:
+          type: [integer, 'null']
+        detail:
+          type: [string, 'null']
+        instance:
+          type: [string, 'null']
+        code:
+          type: [string, 'null']
+        errors:
+          type: [array, 'null']
+          items:
+            type: object
+            properties:
+              code: { type: string }
+              message: { type: string }
+              field: { type: [string, 'null'] }
+    CsrfTokenResponse:
+      type: object
+      required: [requestToken, headerName]
+      properties:
+        requestToken: { type: string }
+        headerName: { type: string, const: X-CSRF-TOKEN }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+        rememberMe: { type: boolean, default: false }
+    LinkedEmployeeSummary:
+      type: object
+      required: [id, displayName, professionalRole, isActive, isSchedulable]
       properties:
         id: { type: string, format: uuid }
         displayName: { type: string }
-        professionalRole: { $ref: '#/components/schemas/ProfessionalRole' }
-    EmployeeDto:
-      allOf:
-        - $ref: '#/components/schemas/EmployeeSummaryDto'
-        - type: object
-          required: [fullName, active, schedulable, includeInAutoFill, countsAsPharmacist, locationIds, monthlyHours, maxDailyHours, version]
-          properties:
-            fullName: { type: string }
-            active: { type: boolean }
-            schedulable: { type: boolean }
-            includeInAutoFill: { type: boolean }
-            countsAsPharmacist: { type: boolean }
-            locationIds:
-              type: array
-              items: { type: string, format: uuid }
-            monthlyHours: { type: number, minimum: 0 }
-            maxDailyHours: { type: number, minimum: 0 }
-            preferredWindows:
-              type: array
-              items: { $ref: '#/components/schemas/TimeWindowDto' }
-            forbiddenWindows:
-              type: array
-              items: { $ref: '#/components/schemas/TimeWindowDto' }
-            version: { type: integer, minimum: 1 }
-    TimeWindowDto:
+        professionalRole:
+          $ref: '#/components/schemas/ProfessionalRole'
+        isActive: { type: boolean }
+        isSchedulable: { type: boolean }
+    SessionResponse:
       type: object
-      required: [dayOfWeek, start, end]
+      required:
+        - userId
+        - organizationId
+        - displayName
+        - email
+        - permissions
+        - linkedEmployee
       properties:
-        dayOfWeek: { type: integer, minimum: 1, maximum: 7 }
-        start: { type: string, pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' }
-        end: { type: string, pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' }
-    LocationDto:
-      type: object
-      required: [id, name, kind, active, version]
-      properties:
-        id: { type: string, format: uuid }
-        name: { type: string }
-        kind: { type: string, enum: [Central, Branch] }
-        active: { type: boolean }
-        version: { type: integer, minimum: 1 }
-    ShiftDto:
-      type: object
-      required: [id, scheduleId, employee, location, startsAt, endsAt, timeType, version]
-      properties:
-        id: { type: string, format: uuid }
-        scheduleId: { type: string, format: uuid }
-        employee: { $ref: '#/components/schemas/EmployeeSummaryDto' }
-        location: { $ref: '#/components/schemas/LocationDto' }
-        startsAt: { type: string, format: date-time }
-        endsAt: { type: string, format: date-time }
-        timeType: { type: string, enum: [Work, Overtime, OnCallDuty, Standby, Training, Other] }
-        note: { type: [string, 'null'] }
-        version: { type: integer, minimum: 1 }
-    UpsertShiftRequest:
-      type: object
-      required: [employeeId, locationId, startsAt, endsAt, timeType]
-      properties:
-        employeeId: { type: string, format: uuid }
-        locationId: { type: string, format: uuid }
-        startsAt: { type: string, format: date-time }
-        endsAt: { type: string, format: date-time }
-        timeType: { type: string, enum: [Work, Overtime, OnCallDuty, Standby, Training, Other] }
-        note: { type: [string, 'null'], maxLength: 1000 }
-        expectedVersion: { type: [integer, 'null'], minimum: 1 }
-    ScheduleDto:
-      type: object
-      required: [id, name, periodStart, periodEnd, status, version]
-      properties:
-        id: { type: string, format: uuid }
-        name: { type: string }
-        periodStart: { type: string, format: date }
-        periodEnd: { type: string, format: date }
-        status: { $ref: '#/components/schemas/ScheduleStatus' }
-        version: { type: integer, minimum: 1 }
-    CreateOwnLeaveRequest:
-      type: object
-      required: [leaveType, startsAt, endsAt, fullDay]
-      properties:
-        leaveType: { $ref: '#/components/schemas/LeaveType' }
-        startsAt: { type: string, format: date-time }
-        endsAt: { type: string, format: date-time }
-        fullDay: { type: boolean }
-        employeeNote: { type: [string, 'null'], maxLength: 1000 }
-    CreateLeaveForEmployee:
-      allOf:
-        - $ref: '#/components/schemas/CreateOwnLeaveRequest'
-        - type: object
-          required: [employeeId]
-          properties:
-            employeeId: { type: string, format: uuid }
-            recordAsApproved: { type: boolean, default: false }
-    LeaveDecisionRequest:
-      type: object
-      required: [decision, expectedVersion]
-      properties:
-        decision: { type: string, enum: [Approve, Reject] }
-        reason: { type: [string, 'null'], maxLength: 1000 }
-        expectedVersion: { type: integer, minimum: 1 }
-    LeaveRequestDto:
-      type: object
-      required: [id, employee, leaveType, startsAt, endsAt, fullDay, status, createdAt, version]
-      properties:
-        id: { type: string, format: uuid }
-        employee: { $ref: '#/components/schemas/EmployeeSummaryDto' }
-        leaveType: { $ref: '#/components/schemas/LeaveType' }
-        startsAt: { type: string, format: date-time }
-        endsAt: { type: string, format: date-time }
-        fullDay: { type: boolean }
-        status: { $ref: '#/components/schemas/LeaveRequestStatus' }
-        employeeNote: { type: [string, 'null'] }
-        decisionReason: { type: [string, 'null'] }
-        createdAt: { type: string, format: date-time }
-        version: { type: integer, minimum: 1 }
-    CoverageRuleDto:
-      type: object
-      required: [id, locationId, dayOfWeek, start, end, professionalRole, requiredCount, severity, active]
-      properties:
-        id: { type: string, format: uuid }
-        locationId: { type: string, format: uuid }
-        dayOfWeek: { type: integer, minimum: 1, maximum: 7 }
-        start: { type: string, pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' }
-        end: { type: string, pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' }
-        professionalRole: { $ref: '#/components/schemas/ProfessionalRole' }
-        requiredCount: { type: integer, minimum: 0 }
-        severity: { $ref: '#/components/schemas/RuleSeverity' }
-        active: { type: boolean }
-    ScheduleIssueDto:
-      type: object
-      required: [code, severity, message]
-      properties:
-        code: { type: string }
-        severity: { $ref: '#/components/schemas/RuleSeverity' }
-        message: { type: string }
-        entityIds:
+        userId: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        displayName: { type: string }
+        email: { type: string, format: email }
+        permissions:
           type: array
-          items: { type: string, format: uuid }
-    ValidationProblemDto:
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/ApplicationPermission'
+        linkedEmployee:
+          oneOf:
+            - $ref: '#/components/schemas/LinkedEmployeeSummary'
+            - type: 'null'
+    EmployeeLocationInput:
       type: object
-      required: [title, issues]
+      required: [locationId]
       properties:
-        title: { type: string }
-        issues:
-          type: array
-          items: { $ref: '#/components/schemas/ScheduleIssueDto' }
-    AiCommandPreviewDto:
+        locationId: { type: string, format: uuid }
+        enabled: { type: boolean, default: true }
+    EmployeeTimeWindowInput:
       type: object
-      required: [previewId, inputText, resolvedSummary, actions, warnings, clarifications, canExecute, expiresAt, confirmationToken]
+      required: [dayOfWeek, startTime, endTime, type]
       properties:
-        previewId: { type: string, format: uuid }
-        inputText: { type: string }
-        resolvedSummary: { type: string }
-        actions:
+        dayOfWeek:
+          type: [string, 'null']
+          enum: [Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, null]
+        startTime: { type: string, format: time }
+        endTime: { type: string, format: time }
+        type:
+          $ref: '#/components/schemas/EmployeeTimeWindowType'
+    CreateEmployeeRequest:
+      type: object
+      required:
+        - fullName
+        - displayName
+        - professionalRole
+        - isActive
+        - isSchedulable
+        - includeInAutoFill
+        - countsAsPharmacist
+      properties:
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        displayName: { type: string, minLength: 1, maxLength: 100 }
+        professionalRole:
+          $ref: '#/components/schemas/ProfessionalRole'
+        isActive: { type: boolean }
+        isSchedulable: { type: boolean }
+        includeInAutoFill: { type: boolean }
+        countsAsPharmacist: { type: boolean }
+        monthlyMinutesLimit: { type: [integer, 'null'], minimum: 0 }
+        maxDailyMinutes: { type: [integer, 'null'], minimum: 0 }
+        birthDate: { type: [string, 'null'], format: date }
+        externalPayrollId: { type: [string, 'null'], maxLength: 100 }
+        locations:
+          type: [array, 'null']
+          items:
+            $ref: '#/components/schemas/EmployeeLocationInput'
+        timeWindows:
+          type: [array, 'null']
+          items:
+            $ref: '#/components/schemas/EmployeeTimeWindowInput'
+        allowedTimeTypes:
+          type: [array, 'null']
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/TimeType'
+    UpdateEmployeeRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateEmployeeRequest'
+        - type: object
+          required: [expectedVersion]
+          properties:
+            expectedVersion:
+              type: integer
+              minimum: 1
+    EmployeeLocationResponse:
+      type: object
+      required: [locationId, locationName, enabled]
+      properties:
+        locationId: { type: string, format: uuid }
+        locationName: { type: string }
+        enabled: { type: boolean }
+    EmployeeTimeWindowResponse:
+      allOf:
+        - $ref: '#/components/schemas/EmployeeTimeWindowInput'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: string, format: uuid }
+    LinkedUserSummary:
+      type: object
+      required: [userId, email, displayName, isActive]
+      properties:
+        userId: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        isActive: { type: boolean }
+    EmployeeResponse:
+      type: object
+      required:
+        - id
+        - fullName
+        - displayName
+        - professionalRole
+        - isActive
+        - isSchedulable
+        - includeInAutoFill
+        - countsAsPharmacist
+        - locations
+        - timeWindows
+        - allowedTimeTypes
+        - linkedUser
+        - warnings
+        - version
+        - createdAtUtc
+        - updatedAtUtc
+      properties:
+        id: { type: string, format: uuid }
+        fullName: { type: string }
+        displayName: { type: string }
+        professionalRole:
+          $ref: '#/components/schemas/ProfessionalRole'
+        isActive: { type: boolean }
+        isSchedulable: { type: boolean }
+        includeInAutoFill: { type: boolean }
+        countsAsPharmacist: { type: boolean }
+        monthlyMinutesLimit: { type: [integer, 'null'] }
+        maxDailyMinutes: { type: [integer, 'null'] }
+        birthDate: { type: [string, 'null'], format: date }
+        externalPayrollId: { type: [string, 'null'] }
+        locations:
           type: array
           items:
-            type: object
-            required: [actionType, summary, parameters]
-            properties:
-              actionType: { type: string }
-              summary: { type: string }
-              parameters: { type: object, additionalProperties: true }
+            $ref: '#/components/schemas/EmployeeLocationResponse'
+        timeWindows:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeeTimeWindowResponse'
+        allowedTimeTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeType'
+        linkedUser:
+          oneOf:
+            - $ref: '#/components/schemas/LinkedUserSummary'
+            - type: 'null'
         warnings:
           type: array
           items: { type: string }
-        clarifications:
+        version: { type: integer, minimum: 1 }
+        createdAtUtc: { type: string, format: date-time }
+        updatedAtUtc: { type: string, format: date-time }
+    CreateLocationRequest:
+      type: object
+      required: [name, type, isActive]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        type:
+          $ref: '#/components/schemas/LocationType'
+        address: { type: [string, 'null'], maxLength: 500 }
+        isActive: { type: boolean }
+    UpdateLocationRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateLocationRequest'
+        - type: object
+          required: [expectedVersion]
+          properties:
+            expectedVersion: { type: integer, minimum: 1 }
+    LocationResponse:
+      allOf:
+        - $ref: '#/components/schemas/CreateLocationRequest'
+        - type: object
+          required: [id, version, createdAtUtc, updatedAtUtc]
+          properties:
+            id: { type: string, format: uuid }
+            version: { type: integer, minimum: 1 }
+            createdAtUtc: { type: string, format: date-time }
+            updatedAtUtc: { type: string, format: date-time }
+    CreateUserRequest:
+      type: object
+      required: [email, displayName, initialPassword]
+      properties:
+        email: { type: string, format: email }
+        displayName: { type: string, minLength: 1, maxLength: 100 }
+        initialPassword: { type: string, format: password, minLength: 12 }
+        employeeId: { type: [string, 'null'], format: uuid }
+        permissions:
+          type: [array, 'null']
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/ApplicationPermission'
+        isActive: { type: boolean, default: true }
+    UserResponse:
+      type: object
+      required:
+        - id
+        - email
+        - displayName
+        - isActive
+        - linkedEmployee
+        - permissions
+        - createdAtUtc
+        - updatedAtUtc
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        isActive: { type: boolean }
+        linkedEmployee:
+          oneOf:
+            - $ref: '#/components/schemas/LinkedEmployeeSummary'
+            - type: 'null'
+        permissions:
           type: array
-          items: { type: string }
-        canExecute: { type: boolean }
-        expiresAt: { type: string, format: date-time }
-        confirmationToken: { type: string }
+          items:
+            $ref: '#/components/schemas/ApplicationPermission'
+        createdAtUtc: { type: string, format: date-time }
+        updatedAtUtc: { type: string, format: date-time }
+    PagedEmployees:
+      type: object
+      required: [items, page, pageSize, totalCount]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeeResponse'
+        page: { type: integer }
+        pageSize: { type: integer }
+        totalCount: { type: integer }
+    PagedLocations:
+      type: object
+      required: [items, page, pageSize, totalCount]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocationResponse'
+        page: { type: integer }
+        pageSize: { type: integer }
+        totalCount: { type: integer }
+    PagedUsers:
+      type: object
+      required: [items, page, pageSize, totalCount]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserResponse'
+        page: { type: integer }
+        pageSize: { type: integer }
+        totalCount: { type: integer }
+security:
+  - cookieAuth: []

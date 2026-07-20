@@ -1,2 +1,5 @@
-<Project Sdk="Microsoft.NET.Sdk" />
-
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../PatikaBeosztas.Domain/PatikaBeosztas.Domain.csproj" />
+  </ItemGroup>
+</Project>

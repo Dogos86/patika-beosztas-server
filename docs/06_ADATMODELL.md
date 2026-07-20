@@ -13,12 +13,13 @@ Minden üzleti entitás tartalmazzon `OrganizationId`-t, ahol releváns audit me
 - Id
 - OrganizationId
 - authentication provider fields
+- DisplayName
 - Active
+- EmployeeId nullable, egyedi kapcsolat ugyanabban a szervezetben
 
 ## Employee
 - Id
 - OrganizationId
-- UserId nullable
 - FullName
 - DisplayName
 - BirthDate opcionális, csak indokolt exportigény esetén
@@ -27,8 +28,8 @@ Minden üzleti entitás tartalmazzon `OrganizationId`-t, ahol releváns audit me
 - Schedulable
 - IncludeInAutoFill
 - CountsAsPharmacist
-- MonthlyHours
-- MaxDailyHours
+- MonthlyMinutesLimit nullable
+- MaxDailyMinutes nullable
 - Version
 
 ## UserPermission
@@ -39,7 +40,7 @@ Minden üzleti entitás tartalmazzon `OrganizationId`-t, ahol releváns audit me
 - Id
 - OrganizationId
 - Name
-- Kind: Central/Branch
+- Type: Central/Branch
 - Active
 - Version
 

@@ -17,6 +17,17 @@ Példák:
 - `POST /api/admin/leave-requests/{id}/decision`
 - dolgozók, telephelyek, lefedettség CRUD megfelelő permissionnel.
 
+Az 1. fázis megvalósított admin útvonalai:
+
+- `/api/admin/employees` és `/api/admin/employees/{id}`;
+- `/api/admin/locations` és `/api/admin/locations/{id}`;
+- `/api/admin/users`;
+- `/api/admin/users/{id}/permissions`;
+- `/api/admin/users/{id}/employee-link`;
+- `/api/admin/users/{id}/status`.
+
+Az admin requestek nem tartalmaznak `organizationId` vagy aktorazonosítót.
+
 ## Beosztás
 
 - időszak és műszak CRUD;
