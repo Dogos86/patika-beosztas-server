@@ -35,6 +35,27 @@ A szakmai szerepkör önmagában nem tiltja a beosztást. Külön zászlók dön
 hogy a gyógyszertárvezető beosztható-e, részt vesz-e a generálásban, illetve
 gyógyszerészi lefedettségbe számít-e.
 
+## Phase 2B runtime-alapok
+
+- A telephely minden napja `Closed`, `Open24Hours` vagy `CustomIntervals`.
+  Egyedi napon több, rendezett és nem átfedő intervallum adható meg; null
+  végidő 24:00-t jelent.
+- A műszaksablon telephelyhez, napmaszkhoz és opcionális
+  `StaffingCapability` értékhez kötött. Inaktív telephely szabályai megmaradnak,
+  de tervezéshez nem jogosultak.
+- A `StaffingCapability` elkülönül a szakmai szereptől. A
+  `SpecialistPharmacist` magában foglalja a `Pharmacist`, a
+  `SpecialistAssistant` az `Assistant` capabilityt.
+- A dolgozó egy-egy munkaprofilja szerződéses, normál, hosszú műszakos,
+  túlórás, ügyeleti, készenléti és hétvégi limiteket tartalmaz. Autofill csak
+  aktív és beosztható dolgozónál kapcsolható be.
+- A dolgozói műszakkvóta egy dimenzió/periódus kombinációra min/target/max
+  sorrendet és `Preferred` vagy `Required` súlyosságot rögzít.
+- Egy napi elsődleges munkablokk azonos telephelyen érintkező vagy átfedő
+  `Work` blokkokat összevon. A hézag, a telephelyváltás, a napi maximum
+  túllépése és a DST szempontból érvénytelen lokális idő elutasított. Érintkező
+  `Work` és `Overtime` egy jelenléti blokk, de két könyvelési szegmens.
+
 ## Lefedettségi szabály
 
 A lefedettségi szabály legalább telephelyet, nap- vagy dátummintát, idősávot,
@@ -51,6 +72,11 @@ hiányszámítás és a generálás nem veheti figyelembe. A lefedettségi proje
 naponként `Ok`, `Warning`, `Blocking`, `Closed` vagy `Inactive` állapotot ad,
 részleteiben pedig idősávonként és szerepkörönként a szükséges és tényleges
 létszámot, az eltérést és az érintett dolgozókat.
+
+Átfedő, azonos capabilityre vonatkozó Phase 2B szabályok szükséges létszáma az
+érintett időpontban érvényes `RequiredCount` értékek maximuma, nem az összege.
+A nyitvatartáson kívüli szabály menthető, de explicit
+`COVERAGE_OUTSIDE_OPENING_HOURS` figyelmeztetést kap.
 
 ## Generátor kötelező korlátai és céljai
 

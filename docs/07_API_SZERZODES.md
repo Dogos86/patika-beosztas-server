@@ -24,6 +24,25 @@ Példák:
   `POST /api/admin/work-preferences/{id}/deactivate`
 - dolgozók, telephelyek, lefedettség CRUD megfelelő permissionnel.
 
+A Phase 2B megvalósított admin útvonalai:
+
+- `GET|PUT /api/admin/locations/{locationId}/weekly-opening`;
+- `GET|POST /api/admin/locations/{locationId}/shift-templates`;
+- `PUT /api/admin/location-shift-templates/{id}` és
+  `POST /api/admin/location-shift-templates/{id}/deactivate`;
+- `GET|POST /api/admin/coverage-requirements`,
+  `PUT /api/admin/coverage-requirements/{id}` és
+  `POST /api/admin/coverage-requirements/{id}/deactivate`;
+- `GET|PUT /api/admin/employees/{employeeId}/capabilities`;
+- `GET|PUT /api/admin/employees/{employeeId}/work-profile`;
+- `GET|POST /api/admin/employees/{employeeId}/shift-quota-rules`;
+- `PUT /api/admin/employee-shift-quota-rules/{id}` és
+  `POST /api/admin/employee-shift-quota-rules/{id}/deactivate`.
+
+Minden Phase 2B mutáció `X-CSRF-TOKEN` headert kér. Az update és deactivate
+contract `expectedVersion` mezője PostgreSQL `xmin` verziót hordoz; a heti
+nyitvatartás és munkaprofil első PUT-ja létrehozáskor null verziót fogad.
+
 Az 1. fázis megvalósított admin útvonalai:
 
 - `/api/admin/employees` és `/api/admin/employees/{id}`;
@@ -63,8 +82,12 @@ elkülönítenie:
 
 Az alkalmazási műveletek pontos útvonalai a Phase 3 implementációval együtt
 kerülnek a futó OpenAPI-ba. A `contracts/api-contract-draft.yaml` jelenleg az
-implementált Phase 2A felület szerződése; jövőbeli útvonalat nem szabad
+implementált Phase 2B felület szerződése; jövőbeli útvonalat nem szabad
 implementáltként feltüntetnie.
+
+A Phase 2B jövőbeli könyvelési szerződése a `WorkPremiumTag`, `PayrollCode` és
+`AssignmentSegment` típusokat definiálja összegek nélkül. `WeekendWork`
+munkaidőtípus nincs; a hétvégi és egyéb pótlék körülmény/tag.
 
 ### Admin munkatér read model
 

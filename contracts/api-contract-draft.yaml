@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: Patika Beosztás API
-  version: 0.2.0-phase2a
+  version: 0.3.0-phase2b
   description: >-
-    A Phase 2A frontend–backend szerződése. A futó backend
+    A Phase 2B frontend–backend szerződése. A futó backend
     /openapi/v1.json dokumentuma a generált frontend típusok végleges forrása.
     A frontend HTTPS-en, az API-val azonos site alatt fusson, és a cookie-s
     kérésekhez credentials: include beállítást használjon.
@@ -16,6 +16,12 @@ tags:
   - name: Users
   - name: Work preferences
   - name: Leave requests
+  - name: Location opening hours
+  - name: Location shift templates
+  - name: Coverage requirements
+  - name: Employee capabilities
+  - name: Employee work profiles
+  - name: Employee shift quota rules
 paths:
   /api/auth/csrf:
     get:
@@ -940,6 +946,412 @@ paths:
           $ref: '#/components/responses/Problem'
         '422':
           $ref: '#/components/responses/Problem'
+  /api/admin/locations/{locationId}/weekly-opening:
+    parameters:
+      - $ref: '#/components/parameters/LocationId'
+    get:
+      tags: [Location opening hours]
+      summary: Telephely heti nyitvatartásának lekérése
+      x-required-permission: ManageLocations
+      responses:
+        '200':
+          description: Heti nyitvatartás
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationWeeklyOpeningResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+    put:
+      tags: [Location opening hours]
+      summary: Telephely heti nyitvatartásának upsertje
+      x-required-permission: ManageLocations
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLocationWeeklyOpeningRequest'
+      responses:
+        '200':
+          description: Módosított heti nyitvatartás
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationWeeklyOpeningResponse'
+        '201':
+          description: Létrehozott heti nyitvatartás
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationWeeklyOpeningResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/locations/{locationId}/shift-templates:
+    parameters:
+      - $ref: '#/components/parameters/LocationId'
+    get:
+      tags: [Location shift templates]
+      summary: Telephely műszaksablonjainak listázása
+      x-required-permission: ManageLocations
+      parameters:
+        - $ref: '#/components/parameters/IncludeInactive'
+      responses:
+        '200':
+          description: Műszaksablonok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LocationShiftTemplateResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+    post:
+      tags: [Location shift templates]
+      summary: Telephelyi műszaksablon létrehozása
+      x-required-permission: ManageLocations
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLocationShiftTemplateRequest'
+      responses:
+        '201':
+          description: Létrehozott műszaksablon
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationShiftTemplateResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/location-shift-templates/{id}:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    put:
+      tags: [Location shift templates]
+      summary: Telephelyi műszaksablon módosítása
+      x-required-permission: ManageLocations
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLocationShiftTemplateRequest'
+      responses:
+        '200':
+          description: Módosított műszaksablon
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationShiftTemplateResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/location-shift-templates/{id}/deactivate:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Location shift templates]
+      summary: Telephelyi műszaksablon inaktiválása
+      x-required-permission: ManageLocations
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionRequest'
+      responses:
+        '200':
+          description: Inaktivált műszaksablon
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationShiftTemplateResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/coverage-requirements:
+    get:
+      tags: [Coverage requirements]
+      summary: Lefedettségi szabályok listázása és szűrése
+      x-required-permission: ManageCoverageRules
+      parameters:
+        - in: query
+          name: locationId
+          schema: { type: [string, 'null'], format: uuid }
+        - in: query
+          name: dayOfWeek
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/DayOfWeek'
+              - type: 'null'
+        - in: query
+          name: capability
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/StaffingCapability'
+              - type: 'null'
+        - $ref: '#/components/parameters/IncludeInactive'
+      responses:
+        '200':
+          description: Lefedettségi szabályok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CoverageRequirementResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+    post:
+      tags: [Coverage requirements]
+      summary: Lefedettségi szabály létrehozása
+      x-required-permission: ManageCoverageRules
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCoverageRequirementRequest'
+      responses:
+        '201':
+          description: Létrehozott lefedettségi szabály
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoverageRequirementResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/coverage-requirements/{id}:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    put:
+      tags: [Coverage requirements]
+      summary: Lefedettségi szabály módosítása
+      x-required-permission: ManageCoverageRules
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCoverageRequirementRequest'
+      responses:
+        '200':
+          description: Módosított lefedettségi szabály
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoverageRequirementResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/coverage-requirements/{id}/deactivate:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Coverage requirements]
+      summary: Lefedettségi szabály inaktiválása
+      x-required-permission: ManageCoverageRules
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionRequest'
+      responses:
+        '200':
+          description: Inaktivált lefedettségi szabály
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoverageRequirementResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/employees/{employeeId}/capabilities:
+    parameters:
+      - $ref: '#/components/parameters/EmployeeId'
+    get:
+      tags: [Employee capabilities]
+      summary: Dolgozó kompetenciáinak lekérése
+      x-required-permission: ManageEmployees
+      responses:
+        '200':
+          description: Dolgozói kompetenciák
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeCapabilitiesResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+    put:
+      tags: [Employee capabilities]
+      summary: Dolgozó kompetenciáinak cseréje
+      x-required-permission: ManageEmployees
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEmployeeCapabilitiesRequest'
+      responses:
+        '200':
+          description: Módosított dolgozói kompetenciák
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeCapabilitiesResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/employees/{employeeId}/work-profile:
+    parameters:
+      - $ref: '#/components/parameters/EmployeeId'
+    get:
+      tags: [Employee work profiles]
+      summary: Dolgozó munkaprofiljának lekérése
+      x-required-permission: ManageEmployees
+      responses:
+        '200':
+          description: Dolgozói munkaprofil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeWorkProfileResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+    put:
+      tags: [Employee work profiles]
+      summary: Dolgozó munkaprofiljának upsertje
+      x-required-permission: ManageEmployees
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEmployeeWorkProfileRequest'
+      responses:
+        '200':
+          description: Módosított munkaprofil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeWorkProfileResponse'
+        '201':
+          description: Létrehozott munkaprofil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeWorkProfileResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/employees/{employeeId}/shift-quota-rules:
+    parameters:
+      - $ref: '#/components/parameters/EmployeeId'
+    get:
+      tags: [Employee shift quota rules]
+      summary: Dolgozó műszakkvóta-szabályainak listázása
+      x-required-permission: ManageEmployees
+      parameters:
+        - $ref: '#/components/parameters/IncludeInactive'
+      responses:
+        '200':
+          description: Műszakkvóta-szabályok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EmployeeShiftQuotaRuleResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+    post:
+      tags: [Employee shift quota rules]
+      summary: Dolgozói műszakkvóta-szabály létrehozása
+      x-required-permission: ManageEmployees
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEmployeeShiftQuotaRuleRequest'
+      responses:
+        '201':
+          description: Létrehozott műszakkvóta-szabály
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeShiftQuotaRuleResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/employee-shift-quota-rules/{id}:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    put:
+      tags: [Employee shift quota rules]
+      summary: Dolgozói műszakkvóta-szabály módosítása
+      x-required-permission: ManageEmployees
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEmployeeShiftQuotaRuleRequest'
+      responses:
+        '200':
+          description: Módosított műszakkvóta-szabály
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeShiftQuotaRuleResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/employee-shift-quota-rules/{id}/deactivate:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Employee shift quota rules]
+      summary: Dolgozói műszakkvóta-szabály inaktiválása
+      x-required-permission: ManageEmployees
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionRequest'
+      responses:
+        '200':
+          description: Inaktivált műszakkvóta-szabály
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeShiftQuotaRuleResponse'
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
 components:
   securitySchemes:
     cookieAuth:
@@ -963,6 +1375,13 @@ components:
     EmployeeId:
       in: path
       name: employeeId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    LocationId:
+      in: path
+      name: locationId
       required: true
       schema:
         type: string
@@ -1507,6 +1926,348 @@ components:
         version: { type: integer, minimum: 1 }
         createdAtUtc: { type: string, format: date-time }
         updatedAtUtc: { type: string, format: date-time }
+    DayOfWeek:
+      type: string
+      enum: [Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday]
+    OpeningDayMode:
+      type: string
+      enum: [Closed, Open24Hours, CustomIntervals]
+    ShiftTemplateCategory:
+      type: string
+      enum: [Morning, Afternoon, Long, Custom]
+    StaffingCapability:
+      type: string
+      enum: [Pharmacist, SpecialistPharmacist, SpecialistAssistant, Assistant, Cleaner, Finance, Other]
+    CoverageSeverity:
+      type: string
+      enum: [Warning, Blocking]
+    ShiftQuotaDimension:
+      type: string
+      enum: [MorningShift, AfternoonShift, EveningShift, LongShift, SaturdayShift, SundayShift, OnCallDuty, Standby]
+    QuotaPeriod:
+      type: string
+      enum: [Week, Month]
+    QuotaSeverity:
+      type: string
+      enum: [Preferred, Required]
+    OpeningIntervalRequest:
+      type: object
+      additionalProperties: false
+      required: [startTime]
+      properties:
+        startTime: { type: string, format: time }
+        endTime:
+          type: [string, 'null']
+          format: time
+          description: A null a napvégi 24:00 határt jelenti.
+    OpeningDayRequest:
+      type: object
+      additionalProperties: false
+      required: [dayOfWeek, mode, intervals]
+      properties:
+        dayOfWeek: { $ref: '#/components/schemas/DayOfWeek' }
+        mode: { $ref: '#/components/schemas/OpeningDayMode' }
+        intervals:
+          type: array
+          items: { $ref: '#/components/schemas/OpeningIntervalRequest' }
+    UpdateLocationWeeklyOpeningRequest:
+      type: object
+      additionalProperties: false
+      required: [days]
+      properties:
+        days:
+          type: array
+          minItems: 7
+          maxItems: 7
+          items: { $ref: '#/components/schemas/OpeningDayRequest' }
+        expectedVersion: { type: [integer, 'null'], minimum: 1 }
+    OpeningIntervalResponse:
+      allOf:
+        - $ref: '#/components/schemas/OpeningIntervalRequest'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: string, format: uuid }
+    OpeningDayResponse:
+      type: object
+      required: [dayOfWeek, mode, intervals]
+      properties:
+        dayOfWeek: { $ref: '#/components/schemas/DayOfWeek' }
+        mode: { $ref: '#/components/schemas/OpeningDayMode' }
+        intervals:
+          type: array
+          items: { $ref: '#/components/schemas/OpeningIntervalResponse' }
+    LocationOpeningExceptionDraft:
+      type: object
+      description: Jövőbeli dátumspecifikus kivétel value contract; működő endpoint még nincs.
+      additionalProperties: false
+      required: [date, mode, intervals]
+      properties:
+        date: { type: string, format: date }
+        mode: { $ref: '#/components/schemas/OpeningDayMode' }
+        intervals:
+          type: array
+          items: { $ref: '#/components/schemas/OpeningIntervalRequest' }
+    LocationWeeklyOpeningResponse:
+      type: object
+      required: [id, locationId, locationName, locationIsActive, days, warnings, version, createdAtUtc, updatedAtUtc]
+      properties:
+        id: { type: string, format: uuid }
+        locationId: { type: string, format: uuid }
+        locationName: { type: string }
+        locationIsActive: { type: boolean }
+        days:
+          type: array
+          items: { $ref: '#/components/schemas/OpeningDayResponse' }
+        warnings:
+          type: array
+          items: { type: string }
+        version: { type: integer, minimum: 1 }
+        createdAtUtc: { type: string, format: date-time }
+        updatedAtUtc: { type: string, format: date-time }
+    CreateLocationShiftTemplateRequest:
+      type: object
+      additionalProperties: false
+      required: [name, category, weekdays, startTime, endTime, isActive]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        category: { $ref: '#/components/schemas/ShiftTemplateCategory' }
+        weekdays:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/DayOfWeek' }
+        startTime: { type: string, format: time }
+        endTime: { type: string, format: time }
+        isActive: { type: boolean }
+        requiredCapability:
+          oneOf:
+            - $ref: '#/components/schemas/StaffingCapability'
+            - type: 'null'
+    UpdateLocationShiftTemplateRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateLocationShiftTemplateRequest'
+        - type: object
+          required: [expectedVersion]
+          properties:
+            expectedVersion: { type: integer, minimum: 1 }
+    LocationShiftTemplateResponse:
+      allOf:
+        - $ref: '#/components/schemas/CreateLocationShiftTemplateRequest'
+        - type: object
+          required: [id, locationId, locationName, version, createdAtUtc, updatedAtUtc]
+          properties:
+            id: { type: string, format: uuid }
+            locationId: { type: string, format: uuid }
+            locationName: { type: string }
+            version: { type: integer, minimum: 1 }
+            createdAtUtc: { type: string, format: date-time }
+            updatedAtUtc: { type: string, format: date-time }
+    CreateCoverageRequirementRequest:
+      type: object
+      additionalProperties: false
+      required: [locationId, dayOfWeek, startTime, endTime, requiredCapability, requiredCount, severity, isActive]
+      properties:
+        locationId: { type: string, format: uuid }
+        dayOfWeek: { $ref: '#/components/schemas/DayOfWeek' }
+        startTime: { type: string, format: time }
+        endTime: { type: string, format: time }
+        requiredCapability: { $ref: '#/components/schemas/StaffingCapability' }
+        requiredCount: { type: integer, minimum: 1 }
+        severity: { $ref: '#/components/schemas/CoverageSeverity' }
+        isActive: { type: boolean }
+    UpdateCoverageRequirementRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateCoverageRequirementRequest'
+        - type: object
+          required: [expectedVersion]
+          properties:
+            expectedVersion: { type: integer, minimum: 1 }
+    CoverageRequirementResponse:
+      allOf:
+        - $ref: '#/components/schemas/CreateCoverageRequirementRequest'
+        - type: object
+          required: [id, locationName, locationIsActive, warnings, version, createdAtUtc, updatedAtUtc]
+          properties:
+            id: { type: string, format: uuid }
+            locationName: { type: string }
+            locationIsActive: { type: boolean }
+            warnings:
+              type: array
+              items: { type: string }
+            version: { type: integer, minimum: 1 }
+            createdAtUtc: { type: string, format: date-time }
+            updatedAtUtc: { type: string, format: date-time }
+    UpdateEmployeeCapabilitiesRequest:
+      type: object
+      additionalProperties: false
+      required: [capabilities, expectedEmployeeVersion]
+      properties:
+        capabilities:
+          type: array
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/StaffingCapability' }
+        expectedEmployeeVersion: { type: integer, minimum: 1 }
+    EmployeeCapabilitiesResponse:
+      type: object
+      required: [employeeId, employeeDisplayName, assignedCapabilities, effectiveCapabilities, countsAsPharmacistCompatibility, employeeVersion]
+      properties:
+        employeeId: { type: string, format: uuid }
+        employeeDisplayName: { type: string }
+        assignedCapabilities:
+          type: array
+          items: { $ref: '#/components/schemas/StaffingCapability' }
+        effectiveCapabilities:
+          type: array
+          items: { $ref: '#/components/schemas/StaffingCapability' }
+        countsAsPharmacistCompatibility: { type: boolean, deprecated: true }
+        employeeVersion: { type: integer, minimum: 1 }
+    UpdateEmployeeWorkProfileRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - contractedMonthlyMinutes
+        - standardShiftMinutes
+        - minimumShiftMinutes
+        - maximumRegularShiftMinutes
+        - maximumDailyMinutes
+        - allowsLongShift
+        - allowsFullOpeningHoursShift
+        - allowsOvertime
+        - allowsOnCallDuty
+        - allowsStandby
+        - allowsSaturday
+        - allowsSunday
+        - includeInAutoFill
+      properties:
+        contractedMonthlyMinutes: { type: integer, minimum: 1, maximum: 44640 }
+        contractedWeeklyMinutes: { type: [integer, 'null'], minimum: 1, maximum: 10080 }
+        standardShiftMinutes: { type: integer, minimum: 1, maximum: 1440 }
+        minimumShiftMinutes: { type: integer, minimum: 1, maximum: 1440 }
+        maximumRegularShiftMinutes: { type: integer, minimum: 1, maximum: 1440 }
+        maximumDailyMinutes: { type: integer, minimum: 1, maximum: 1440 }
+        allowsLongShift: { type: boolean }
+        maximumLongShiftMinutes: { type: [integer, 'null'], minimum: 0, maximum: 1440 }
+        allowsFullOpeningHoursShift: { type: boolean }
+        allowsOvertime: { type: boolean }
+        maximumOvertimeMinutesPerMonth: { type: [integer, 'null'], minimum: 0 }
+        allowsOnCallDuty: { type: boolean }
+        maximumOnCallAssignmentsPerMonth: { type: [integer, 'null'], minimum: 0 }
+        allowsStandby: { type: boolean }
+        maximumStandbyAssignmentsPerMonth: { type: [integer, 'null'], minimum: 0 }
+        allowsSaturday: { type: boolean }
+        maximumSaturdaysPerMonth: { type: [integer, 'null'], minimum: 0 }
+        allowsSunday: { type: boolean }
+        maximumSundaysPerMonth: { type: [integer, 'null'], minimum: 0 }
+        includeInAutoFill: { type: boolean }
+        expectedVersion: { type: [integer, 'null'], minimum: 1 }
+    EmployeeWorkProfileResponse:
+      type: object
+      required:
+        - id
+        - employeeId
+        - employeeDisplayName
+        - contractedMonthlyMinutes
+        - standardShiftMinutes
+        - minimumShiftMinutes
+        - maximumRegularShiftMinutes
+        - maximumDailyMinutes
+        - allowsLongShift
+        - allowsFullOpeningHoursShift
+        - allowsOvertime
+        - allowsOnCallDuty
+        - allowsStandby
+        - allowsSaturday
+        - allowsSunday
+        - includeInAutoFill
+        - version
+        - createdAtUtc
+        - updatedAtUtc
+      properties:
+        id: { type: string, format: uuid }
+        employeeId: { type: string, format: uuid }
+        employeeDisplayName: { type: string }
+        contractedMonthlyMinutes: { type: integer, minimum: 1, maximum: 44640 }
+        contractedWeeklyMinutes: { type: [integer, 'null'], minimum: 1, maximum: 10080 }
+        standardShiftMinutes: { type: integer, minimum: 1, maximum: 1440 }
+        minimumShiftMinutes: { type: integer, minimum: 1, maximum: 1440 }
+        maximumRegularShiftMinutes: { type: integer, minimum: 1, maximum: 1440 }
+        maximumDailyMinutes: { type: integer, minimum: 1, maximum: 1440 }
+        allowsLongShift: { type: boolean }
+        maximumLongShiftMinutes: { type: [integer, 'null'], minimum: 0, maximum: 1440 }
+        allowsFullOpeningHoursShift: { type: boolean }
+        allowsOvertime: { type: boolean }
+        maximumOvertimeMinutesPerMonth: { type: [integer, 'null'], minimum: 0 }
+        allowsOnCallDuty: { type: boolean }
+        maximumOnCallAssignmentsPerMonth: { type: [integer, 'null'], minimum: 0 }
+        allowsStandby: { type: boolean }
+        maximumStandbyAssignmentsPerMonth: { type: [integer, 'null'], minimum: 0 }
+        allowsSaturday: { type: boolean }
+        maximumSaturdaysPerMonth: { type: [integer, 'null'], minimum: 0 }
+        allowsSunday: { type: boolean }
+        maximumSundaysPerMonth: { type: [integer, 'null'], minimum: 0 }
+        includeInAutoFill: { type: boolean }
+        version: { type: integer, minimum: 1 }
+        createdAtUtc: { type: string, format: date-time }
+        updatedAtUtc: { type: string, format: date-time }
+    CreateEmployeeShiftQuotaRuleRequest:
+      type: object
+      additionalProperties: false
+      required: [dimension, period, minimum, target, maximum, severity, isActive]
+      properties:
+        dimension: { $ref: '#/components/schemas/ShiftQuotaDimension' }
+        period: { $ref: '#/components/schemas/QuotaPeriod' }
+        minimum: { type: integer, minimum: 0 }
+        target: { type: integer, minimum: 0 }
+        maximum: { type: integer, minimum: 0 }
+        severity: { $ref: '#/components/schemas/QuotaSeverity' }
+        isActive: { type: boolean }
+    UpdateEmployeeShiftQuotaRuleRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateEmployeeShiftQuotaRuleRequest'
+        - type: object
+          required: [expectedVersion]
+          properties:
+            expectedVersion: { type: integer, minimum: 1 }
+    EmployeeShiftQuotaRuleResponse:
+      allOf:
+        - $ref: '#/components/schemas/CreateEmployeeShiftQuotaRuleRequest'
+        - type: object
+          required: [id, employeeId, employeeDisplayName, version, createdAtUtc, updatedAtUtc]
+          properties:
+            id: { type: string, format: uuid }
+            employeeId: { type: string, format: uuid }
+            employeeDisplayName: { type: string }
+            version: { type: integer, minimum: 1 }
+            createdAtUtc: { type: string, format: date-time }
+            updatedAtUtc: { type: string, format: date-time }
+    WorkPremiumTag:
+      type: object
+      description: Jövőbeli bérszámfejtési címke; összegszámítás nincs.
+      required: [code]
+      properties:
+        code: { type: string }
+    PayrollCode:
+      type: object
+      description: Jövőbeli könyvelési/bérszámfejtési kód.
+      required: [code]
+      properties:
+        code: { type: string }
+    AssignmentSegment:
+      type: object
+      description: Egy folyamatos assignment munkaidőtípus szerinti szegmense; összeget nem tartalmaz.
+      required: [startTime, endTime, timeType, premiumTags]
+      properties:
+        startTime: { type: string, format: time }
+        endTime: { type: string, format: time }
+        timeType: { $ref: '#/components/schemas/TimeType' }
+        payrollCode:
+          oneOf:
+            - $ref: '#/components/schemas/PayrollCode'
+            - type: 'null'
+        premiumTags:
+          type: array
+          items: { $ref: '#/components/schemas/WorkPremiumTag' }
     PagedEmployees:
       type: object
       required: [items, page, pageSize, totalCount]

@@ -42,4 +42,12 @@ public sealed class Employee
 
     public ICollection<EmployeeAllowedTimeType> AllowedTimeTypes { get; } =
         new List<EmployeeAllowedTimeType>();
+
+    public ICollection<EmployeeCapability> Capabilities { get; } =
+        new List<EmployeeCapability>();
+
+    public EmployeeWorkProfile? WorkProfile { get; set; }
+
+    public ICollection<EmployeeShiftQuotaRule> ShiftQuotaRules { get; } =
+        new List<EmployeeShiftQuotaRule>();
 }

@@ -50,6 +50,35 @@ Minden üzleti entitás tartalmazzon `OrganizationId`-t, ahol releváns audit me
 - LocationId
 - Active
 
+## LocationWeeklyOpening és OpeningInterval
+- OrganizationId, LocationId; telephelyenként egy heti fejléc
+- hét nap külön `OpeningDayMode` értéke: Closed/Open24Hours/CustomIntervals
+- OpeningInterval: DayOfWeek, StartTime, EndTime nullable; null végidő = 24:00
+- CreatedAtUtc/UpdatedAtUtc, Version (`xmin`)
+
+## LocationShiftTemplate
+- OrganizationId, LocationId
+- Name, Category, WeekdayMask, StartTime/EndTime
+- RequiredCapability opcionális
+- IsActive, CreatedAtUtc/UpdatedAtUtc, Version (`xmin`)
+
+## EmployeeCapability
+- OrganizationId, EmployeeId, Capability
+- kompozit kulcs; capability-implikáció alkalmazási/domain projekció
+
+## EmployeeWorkProfile
+- OrganizationId, EmployeeId; dolgozónként egy rekord
+- szerződéses havi/heti perc, standard/minimum/maximum műszakpercek
+- hosszú műszak, teljes nyitvatartás, túlóra, ügyelet, készenlét és hétvége
+  engedélyei és korlátai
+- IncludeInAutoFill, CreatedAtUtc/UpdatedAtUtc, Version (`xmin`)
+
+## EmployeeShiftQuotaRule
+- OrganizationId, EmployeeId, Dimension, Period
+- MinimumCount, TargetCount, MaximumCount
+- Severity, IsActive, CreatedAtUtc/UpdatedAtUtc, Version (`xmin`)
+- egyedi EmployeeId + Dimension + Period
+
 ## WorkPreference
 - Id
 - OrganizationId
@@ -151,18 +180,17 @@ bemeneti snapshothoz kell kötnie.
 Az elutasítás hatókörének és megőrzési idejének szabálya nyitott; enélkül a
 generátor nem feltételezheti, hogy egy korábbi elutasítás örökre tiltást jelent.
 
-## CoverageRule
+## CoverageRequirement
 - Id
 - OrganizationId
 - LocationId
-- recurrence/date selector
-- StartLocalTime
-- EndLocalTime
-- RequiredProfessionalRole or capability
+- DayOfWeek
+- StartTime/EndTime
+- RequiredCapability
 - RequiredCount
-- Severity
-- Active
-- Version
+- Severity: Warning/Blocking
+- IsActive, CreatedAtUtc/UpdatedAtUtc
+- Version (`xmin`)
 
 ## LeaveRequest
 - Id
@@ -222,4 +250,7 @@ rekord szervezetével. Ez különösen kötelező az ApplicationUser–Employee,
 EmployeeLocation–Employee/Location, EmployeeTimeWindow–Employee,
 EmployeeAllowedTimeType–Employee, UserPermission–ApplicationUser,
 WorkPreference–Employee/Location, LeaveRequest–Employee/User és
-LeaveStatusHistory–LeaveRequest/User kapcsolatoknál.
+LeaveStatusHistory–LeaveRequest/User, továbbá a LocationWeeklyOpening–Location,
+OpeningInterval–LocationWeeklyOpening, LocationShiftTemplate–Location,
+CoverageRequirement–Location, EmployeeCapability–Employee,
+EmployeeWorkProfile–Employee és EmployeeShiftQuotaRule–Employee kapcsolatoknál.

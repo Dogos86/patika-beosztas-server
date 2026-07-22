@@ -29,6 +29,23 @@ public sealed class PatikaDbContext(
 
     public DbSet<LeaveStatusHistory> LeaveStatusHistories => Set<LeaveStatusHistory>();
 
+    public DbSet<LocationWeeklyOpening> LocationWeeklyOpenings =>
+        Set<LocationWeeklyOpening>();
+
+    public DbSet<OpeningInterval> OpeningIntervals => Set<OpeningInterval>();
+
+    public DbSet<LocationShiftTemplate> LocationShiftTemplates =>
+        Set<LocationShiftTemplate>();
+
+    public DbSet<EmployeeCapability> EmployeeCapabilities => Set<EmployeeCapability>();
+
+    public DbSet<CoverageRequirement> CoverageRequirements => Set<CoverageRequirement>();
+
+    public DbSet<EmployeeWorkProfile> EmployeeWorkProfiles => Set<EmployeeWorkProfile>();
+
+    public DbSet<EmployeeShiftQuotaRule> EmployeeShiftQuotaRules =>
+        Set<EmployeeShiftQuotaRule>();
+
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
@@ -44,6 +61,8 @@ public sealed class PatikaDbContext(
         ConfigureEmployeeSettings(builder);
         ConfigureWorkPreferences(builder);
         ConfigureLeaveRequests(builder);
+        ConfigureLocationPlanning(builder);
+        ConfigureEmployeePlanning(builder);
         ConfigurePermissions(builder);
         ConfigureAudit(builder);
     }
@@ -362,6 +381,236 @@ public sealed class PatikaDbContext(
                 })
                 .HasPrincipalKey(user => new { user.OrganizationId, user.Id })
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+
+    private static void ConfigureLocationPlanning(ModelBuilder builder)
+    {
+        builder.Entity<LocationWeeklyOpening>(entity =>
+        {
+            entity.ToTable("LocationWeeklyOpenings");
+            entity.HasKey(opening => opening.Id);
+            entity.Property(opening => opening.SundayMode).HasConversion<string>().HasMaxLength(30);
+            entity.Property(opening => opening.MondayMode).HasConversion<string>().HasMaxLength(30);
+            entity.Property(opening => opening.TuesdayMode).HasConversion<string>().HasMaxLength(30);
+            entity.Property(opening => opening.WednesdayMode).HasConversion<string>().HasMaxLength(30);
+            entity.Property(opening => opening.ThursdayMode).HasConversion<string>().HasMaxLength(30);
+            entity.Property(opening => opening.FridayMode).HasConversion<string>().HasMaxLength(30);
+            entity.Property(opening => opening.SaturdayMode).HasConversion<string>().HasMaxLength(30);
+            entity.Property(opening => opening.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin");
+            entity.HasAlternateKey(opening => new { opening.OrganizationId, opening.Id });
+            entity.HasIndex(opening => new { opening.OrganizationId, opening.LocationId })
+                .IsUnique();
+            entity.HasOne(opening => opening.Location)
+                .WithOne(location => location.WeeklyOpening)
+                .HasForeignKey<LocationWeeklyOpening>(opening => new
+                {
+                    opening.OrganizationId,
+                    opening.LocationId
+                })
+                .HasPrincipalKey<Location>(location => new
+                {
+                    location.OrganizationId,
+                    location.Id
+                })
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<OpeningInterval>(entity =>
+        {
+            entity.ToTable("OpeningIntervals");
+            entity.HasKey(interval => interval.Id);
+            entity.HasIndex(interval => new
+            {
+                interval.OrganizationId,
+                interval.LocationWeeklyOpeningId,
+                interval.DayOfWeek,
+                interval.StartTime
+            });
+            entity.HasOne(interval => interval.WeeklyOpening)
+                .WithMany(opening => opening.Intervals)
+                .HasForeignKey(interval => new
+                {
+                    interval.OrganizationId,
+                    interval.LocationWeeklyOpeningId
+                })
+                .HasPrincipalKey(opening => new { opening.OrganizationId, opening.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<LocationShiftTemplate>(entity =>
+        {
+            entity.ToTable("LocationShiftTemplates");
+            entity.HasKey(template => template.Id);
+            entity.Property(template => template.Name).HasMaxLength(100);
+            entity.Property(template => template.Category)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(template => template.RequiredCapability)
+                .HasConversion<string>()
+                .HasMaxLength(40);
+            entity.Property(template => template.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin");
+            entity.HasAlternateKey(template => new { template.OrganizationId, template.Id });
+            entity.HasIndex(template => new
+            {
+                template.OrganizationId,
+                template.LocationId,
+                template.IsActive
+            });
+            entity.HasOne(template => template.Location)
+                .WithMany(location => location.ShiftTemplates)
+                .HasForeignKey(template => new
+                {
+                    template.OrganizationId,
+                    template.LocationId
+                })
+                .HasPrincipalKey(location => new { location.OrganizationId, location.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<CoverageRequirement>(entity =>
+        {
+            entity.ToTable("CoverageRequirements");
+            entity.HasKey(requirement => requirement.Id);
+            entity.Property(requirement => requirement.RequiredCapability)
+                .HasConversion<string>()
+                .HasMaxLength(40);
+            entity.Property(requirement => requirement.Severity)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+            entity.Property(requirement => requirement.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin");
+            entity.HasAlternateKey(requirement => new
+            {
+                requirement.OrganizationId,
+                requirement.Id
+            });
+            entity.HasIndex(requirement => new
+            {
+                requirement.OrganizationId,
+                requirement.LocationId,
+                requirement.DayOfWeek,
+                requirement.IsActive
+            });
+            entity.HasIndex(requirement => new
+            {
+                requirement.OrganizationId,
+                requirement.RequiredCapability,
+                requirement.DayOfWeek,
+                requirement.StartTime,
+                requirement.EndTime
+            });
+            entity.HasOne(requirement => requirement.Location)
+                .WithMany(location => location.CoverageRequirements)
+                .HasForeignKey(requirement => new
+                {
+                    requirement.OrganizationId,
+                    requirement.LocationId
+                })
+                .HasPrincipalKey(location => new { location.OrganizationId, location.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureEmployeePlanning(ModelBuilder builder)
+    {
+        builder.Entity<EmployeeCapability>(entity =>
+        {
+            entity.ToTable("EmployeeCapabilities");
+            entity.HasKey(capability => new
+            {
+                capability.EmployeeId,
+                capability.Capability
+            });
+            entity.Property(capability => capability.Capability)
+                .HasConversion<string>()
+                .HasMaxLength(40);
+            entity.HasIndex(capability => new
+            {
+                capability.OrganizationId,
+                capability.Capability,
+                capability.EmployeeId
+            });
+            entity.HasOne(capability => capability.Employee)
+                .WithMany(employee => employee.Capabilities)
+                .HasForeignKey(capability => new
+                {
+                    capability.OrganizationId,
+                    capability.EmployeeId
+                })
+                .HasPrincipalKey(employee => new { employee.OrganizationId, employee.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<EmployeeWorkProfile>(entity =>
+        {
+            entity.ToTable("EmployeeWorkProfiles");
+            entity.HasKey(profile => profile.Id);
+            entity.Property(profile => profile.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin");
+            entity.HasAlternateKey(profile => new { profile.OrganizationId, profile.Id });
+            entity.HasIndex(profile => new { profile.OrganizationId, profile.EmployeeId })
+                .IsUnique();
+            entity.HasOne(profile => profile.Employee)
+                .WithOne(employee => employee.WorkProfile)
+                .HasForeignKey<EmployeeWorkProfile>(profile => new
+                {
+                    profile.OrganizationId,
+                    profile.EmployeeId
+                })
+                .HasPrincipalKey<Employee>(employee => new
+                {
+                    employee.OrganizationId,
+                    employee.Id
+                })
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<EmployeeShiftQuotaRule>(entity =>
+        {
+            entity.ToTable("EmployeeShiftQuotaRules");
+            entity.HasKey(rule => rule.Id);
+            entity.Property(rule => rule.Dimension)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(rule => rule.Period)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+            entity.Property(rule => rule.Severity)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+            entity.Property(rule => rule.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin");
+            entity.HasAlternateKey(rule => new { rule.OrganizationId, rule.Id });
+            entity.HasIndex(rule => new
+            {
+                rule.OrganizationId,
+                rule.EmployeeId,
+                rule.Dimension,
+                rule.Period
+            }).IsUnique();
+            entity.HasIndex(rule => new
+            {
+                rule.OrganizationId,
+                rule.EmployeeId,
+                rule.IsActive
+            });
+            entity.HasOne(rule => rule.Employee)
+                .WithMany(employee => employee.ShiftQuotaRules)
+                .HasForeignKey(rule => new
+                {
+                    rule.OrganizationId,
+                    rule.EmployeeId
+                })
+                .HasPrincipalKey(employee => new { employee.OrganizationId, employee.Id })
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 

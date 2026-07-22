@@ -32,6 +32,12 @@ A generálás-központú beosztási fázisban a teljes és részleges generálá
 `ManageCoverageRules` permissionhöz kötött. Ha egy use case több képességet
 érint, minden szükséges permissiont a szerver ellenőriz.
 
+A Phase 2B runtime-ban a heti nyitvatartás és a műszaksablonok kezelése
+`ManageLocations`, a dolgozói capability, munkaprofil és műszakkvóta kezelése
+`ManageEmployees`, a coverage-szabályok CRUD-ja pedig `ManageCoverageRules`
+permissiont igényel. Ezek a permissionök továbbra sem következnek a dolgozó
+`ProfessionalRole` értékéből.
+
 ### Professional roles
 - PharmacyManager
 - Pharmacist

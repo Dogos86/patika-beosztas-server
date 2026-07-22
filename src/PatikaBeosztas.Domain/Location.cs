@@ -23,4 +23,12 @@ public sealed class Location
     public Organization? Organization { get; set; }
 
     public ICollection<EmployeeLocation> Employees { get; } = new List<EmployeeLocation>();
+
+    public LocationWeeklyOpening? WeeklyOpening { get; set; }
+
+    public ICollection<LocationShiftTemplate> ShiftTemplates { get; } =
+        new List<LocationShiftTemplate>();
+
+    public ICollection<CoverageRequirement> CoverageRequirements { get; } =
+        new List<CoverageRequirement>();
 }

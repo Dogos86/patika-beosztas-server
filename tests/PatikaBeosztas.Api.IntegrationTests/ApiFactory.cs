@@ -78,6 +78,8 @@ internal static class IntegrationTestData
         Guid.Parse("84000000-0000-0000-0000-000000000001");
     public static readonly Guid LocalLocationId =
         Guid.Parse("84000000-0000-0000-0000-000000000002");
+    public static readonly Guid InactiveLocalLocationId =
+        Guid.Parse("84000000-0000-0000-0000-000000000003");
 
     public static async Task SeedAsync(IServiceProvider services)
     {
@@ -161,6 +163,33 @@ internal static class IntegrationTestData
                 IsActive = true,
                 CreatedAtUtc = now,
                 UpdatedAtUtc = now
+            },
+            new Location
+            {
+                Id = InactiveLocalLocationId,
+                OrganizationId = OrganizationId,
+                Name = "Inaktív helyi telephely",
+                Type = LocationType.Branch,
+                IsActive = false,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
+            });
+        await dbContext.SaveChangesAsync();
+
+        dbContext.EmployeeCapabilities.AddRange(
+            new EmployeeCapability
+            {
+                OrganizationId = OrganizationId,
+                EmployeeId = AdminEmployeeId,
+                Capability = StaffingCapability.Pharmacist,
+                AssignedAtUtc = now
+            },
+            new EmployeeCapability
+            {
+                OrganizationId = OtherOrganizationId,
+                EmployeeId = OtherEmployeeId,
+                Capability = StaffingCapability.Pharmacist,
+                AssignedAtUtc = now
             });
         await dbContext.SaveChangesAsync();
 
@@ -179,6 +208,7 @@ internal static class IntegrationTestData
                 ApplicationPermission.ManageLocations,
                 ApplicationPermission.ManageUsers,
                 ApplicationPermission.ManageWorkPreferences,
+                ApplicationPermission.ManageCoverageRules,
                 ApplicationPermission.ManageAllLeaveRequests,
                 ApplicationPermission.ApproveLeaveRequests,
                 ApplicationPermission.RecordLeaveForOthers,

@@ -157,6 +157,30 @@ valósítja meg. Az Approved/Cancelled vagy betegállomány-változás meglévő
 beosztásra, generátorra és dolgozói értesítésre gyakorolt tranzakciós
 hatását a beosztási vertikális szeletben kell meghatározni.
 
+## Phase 2B tervezési alapok
+
+### P2B-001 – Átfedő könyvelési szegmensek
+
+Az érintkező Work és Overtime szegmensek egy jelenléti blokkban egyértelműen
+megőrizhetők. Nyitott, hogy időben átfedő, eltérő TimeType szegmenseknél
+melyik típus élvez prioritást, megengedett-e a felosztás, és milyen payroll
+kódokat/pótléktageket kell képezni. A Phase 2B normalizáló addig stabil
+`OVERLAPPING_TIME_TYPES_NOT_ALLOWED` hibával elutasítja ezt az alakot.
+
+### P2B-002 – Nyitvatartási kivételek
+
+A heti ismétlődéshez elkészült a jövőbeli exception draft contract, de dönteni
+kell az ünnepnapok, rendkívüli zárások, dátumtartományok, prioritások és az
+egymást átfedő kivételek felülírási szabályáról, mielőtt perzisztált entitás és
+endpoint készül.
+
+### P2B-003 – CountsAsPharmacist kivezetése
+
+A migráció explicit Pharmacist capabilityre képezi a meglévő igaz értékeket és
+a PharmacyManager szerepet, de a kompatibilitási mező még megmarad. Külön
+verziózott kliens- és adatmigráció után dönthető el, mikor válik kizárólag a
+capability-kapcsolat forrássá, és mikor távolítható el a régi oszlop.
+
 ## Hitelesítés és üzemeltetés
 
 Az 1. fázis aktív promptja az első implementációra ASP.NET Core Identity +

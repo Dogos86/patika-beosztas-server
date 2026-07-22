@@ -189,6 +189,185 @@ public static class InputValidation
                 }))
             .ToArray();
 
+    public static IReadOnlyList<ApiValidationError> ValidateOpeningWeek(
+        IReadOnlyList<OpeningDayRequest>? days)
+    {
+        if (days is null ||
+            days.Any(day =>
+                day is null ||
+                day.Intervals is null ||
+                day.Intervals.Any(interval => interval is null)))
+        {
+            return
+            [
+                new ApiValidationError(
+                    "OPENING_DAYS_REQUIRED",
+                    "A heti nyitvatartás napjai és intervallumai kötelezők.",
+                    "days")
+            ];
+        }
+
+        return OpeningHoursRules.ValidateWeek(days.Select(day => new OpeningDayDefinition(
+                day.DayOfWeek,
+                day.Mode,
+                day.Intervals.Select(interval => new OpeningIntervalDefinition(
+                        interval.StartTime,
+                        interval.EndTime))
+                    .ToArray()))
+            .ToArray())
+            .Select(issue => new ApiValidationError(issue.Code, issue.Message, "days"))
+            .ToArray();
+    }
+
+    public static IReadOnlyList<ApiValidationError> ValidateShiftTemplate(
+        string? name,
+        IReadOnlyList<DayOfWeek>? weekdays,
+        TimeOnly startTime,
+        TimeOnly endTime) =>
+        LocationShiftTemplateRules.Validate(
+                name ?? string.Empty,
+                weekdays ?? [],
+                startTime,
+                endTime)
+            .Select(issue => new ApiValidationError(
+                issue.Code,
+                issue.Message,
+                issue.Code switch
+                {
+                    "SHIFT_TEMPLATE_NAME_REQUIRED" or
+                        "SHIFT_TEMPLATE_NAME_TOO_LONG" => "name",
+                    "SHIFT_TEMPLATE_WEEKDAY_REQUIRED" or
+                        "SHIFT_TEMPLATE_WEEKDAY_INVALID" or
+                        "DUPLICATE_SHIFT_TEMPLATE_WEEKDAY" => "weekdays",
+                    _ => "startTime"
+                }))
+            .ToArray();
+
+    public static IReadOnlyList<ApiValidationError> ValidateCoverageRequirement(
+        TimeOnly startTime,
+        TimeOnly endTime,
+        int requiredCount) =>
+        CoverageRequirementRules.Validate(startTime, endTime, requiredCount)
+            .Select(issue => new ApiValidationError(
+                issue.Code,
+                issue.Message,
+                issue.Code == "COVERAGE_REQUIRED_COUNT_INVALID"
+                    ? "requiredCount"
+                    : "startTime"))
+            .ToArray();
+
+    public static IReadOnlyList<ApiValidationError> ValidateCapabilities(
+        IReadOnlyList<StaffingCapability>? capabilities)
+    {
+        if (capabilities is null)
+        {
+            return
+            [
+                new ApiValidationError(
+                    "STAFFING_CAPABILITIES_REQUIRED",
+                    "A kompetencialista kötelező.",
+                    "capabilities")
+            ];
+        }
+
+        var errors = new List<ApiValidationError>();
+        if (capabilities.Any(capability => !Enum.IsDefined(capability)))
+        {
+            errors.Add(new(
+                "STAFFING_CAPABILITY_INVALID",
+                "A kompetencia értéke érvénytelen.",
+                "capabilities"));
+        }
+
+        if (capabilities.Distinct().Count() != capabilities.Count)
+        {
+            errors.Add(new(
+                "DUPLICATE_STAFFING_CAPABILITY",
+                "Egy kompetencia csak egyszer rendelhető a dolgozóhoz.",
+                "capabilities"));
+        }
+
+        return errors;
+    }
+
+    public static IReadOnlyList<ApiValidationError> ValidateWorkProfile(
+        UpdateEmployeeWorkProfileRequest request,
+        bool employeeIsActive,
+        bool employeeIsSchedulable)
+    {
+        var profile = new EmployeeWorkProfile
+        {
+            ContractedMonthlyMinutes = request.ContractedMonthlyMinutes,
+            ContractedWeeklyMinutes = request.ContractedWeeklyMinutes,
+            StandardShiftMinutes = request.StandardShiftMinutes,
+            MinimumShiftMinutes = request.MinimumShiftMinutes,
+            MaximumRegularShiftMinutes = request.MaximumRegularShiftMinutes,
+            MaximumDailyMinutes = request.MaximumDailyMinutes,
+            AllowsLongShift = request.AllowsLongShift,
+            MaximumLongShiftMinutes = request.MaximumLongShiftMinutes,
+            AllowsFullOpeningHoursShift = request.AllowsFullOpeningHoursShift,
+            AllowsOvertime = request.AllowsOvertime,
+            MaximumOvertimeMinutesPerMonth = request.MaximumOvertimeMinutesPerMonth,
+            AllowsOnCallDuty = request.AllowsOnCallDuty,
+            MaximumOnCallAssignmentsPerMonth = request.MaximumOnCallAssignmentsPerMonth,
+            AllowsStandby = request.AllowsStandby,
+            MaximumStandbyAssignmentsPerMonth = request.MaximumStandbyAssignmentsPerMonth,
+            AllowsSaturday = request.AllowsSaturday,
+            MaximumSaturdaysPerMonth = request.MaximumSaturdaysPerMonth,
+            AllowsSunday = request.AllowsSunday,
+            MaximumSundaysPerMonth = request.MaximumSundaysPerMonth,
+            IncludeInAutoFill = request.IncludeInAutoFill
+        };
+        return EmployeeWorkProfileRules.Validate(
+                profile,
+                employeeIsActive,
+                employeeIsSchedulable)
+            .Select(issue => new ApiValidationError(
+                issue.Code,
+                issue.Message,
+                WorkProfileField(issue.Code)))
+            .ToArray();
+    }
+
+    public static IReadOnlyList<ApiValidationError> ValidateShiftQuota(
+        int minimum,
+        int target,
+        int maximum) =>
+        EmployeeShiftQuotaRuleRules.Validate(minimum, target, maximum)
+            .Select(issue => new ApiValidationError(
+                issue.Code,
+                issue.Message,
+                issue.Code == "SHIFT_QUOTA_NEGATIVE" ? "minimum" : "target"))
+            .ToArray();
+
+    private static string WorkProfileField(string code) =>
+        code switch
+        {
+            "CONTRACTED_MONTHLY_MINUTES_INVALID" => "contractedMonthlyMinutes",
+            "CONTRACTED_WEEKLY_MINUTES_INVALID" => "contractedWeeklyMinutes",
+            "MINIMUM_SHIFT_MINUTES_INVALID" => "minimumShiftMinutes",
+            "STANDARD_SHIFT_MINUTES_INVALID" => "standardShiftMinutes",
+            "MAXIMUM_REGULAR_SHIFT_MINUTES_INVALID" or
+                "WORK_PROFILE_SHIFT_LIMIT_ORDER" => "maximumRegularShiftMinutes",
+            "MAXIMUM_DAILY_MINUTES_INVALID" or
+                "REGULAR_SHIFT_EXCEEDS_DAILY_MAXIMUM" or
+                "LONG_SHIFT_EXCEEDS_DAILY_MAXIMUM" => "maximumDailyMinutes",
+            "LONG_SHIFT_LIMIT_REQUIRED" or
+                "LONG_SHIFT_LIMIT_MUST_BE_EMPTY" or
+                "LONG_SHIFT_MAXIMUM_TOO_SMALL" => "maximumLongShiftMinutes",
+            "OVERTIME_LIMIT_REQUIRED" or
+                "OVERTIME_LIMIT_MUST_BE_EMPTY" => "maximumOvertimeMinutesPerMonth",
+            "ON_CALL_LIMIT_REQUIRED" or
+                "ON_CALL_LIMIT_MUST_BE_EMPTY" => "maximumOnCallAssignmentsPerMonth",
+            "STANDBY_LIMIT_REQUIRED" or
+                "STANDBY_LIMIT_MUST_BE_EMPTY" => "maximumStandbyAssignmentsPerMonth",
+            "SATURDAY_LIMIT_REQUIRED" or
+                "SATURDAY_LIMIT_MUST_BE_EMPTY" => "maximumSaturdaysPerMonth",
+            "SUNDAY_LIMIT_REQUIRED" or
+                "SUNDAY_LIMIT_MUST_BE_EMPTY" => "maximumSundaysPerMonth",
+            _ => "includeInAutoFill"
+        };
+
     private static void ValidateRequiredText(
         string value,
         int maximumLength,

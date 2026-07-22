@@ -21,6 +21,66 @@ public enum LocationType
     Branch
 }
 
+public enum OpeningDayMode
+{
+    Closed,
+    Open24Hours,
+    CustomIntervals
+}
+
+[SuppressMessage(
+    "Naming",
+    "CA1720:Identifier contains type name",
+    Justification = "Long is the explicit public shift-template category required by the domain contract.")]
+public enum ShiftTemplateCategory
+{
+    Morning,
+    Afternoon,
+    Long,
+    Custom
+}
+
+public enum StaffingCapability
+{
+    Pharmacist,
+    SpecialistPharmacist,
+    SpecialistAssistant,
+    Assistant,
+    Cleaner,
+    Finance,
+    Other
+}
+
+public enum CoverageSeverity
+{
+    Warning,
+    Blocking
+}
+
+public enum ShiftQuotaDimension
+{
+    MorningShift,
+    AfternoonShift,
+    EveningShift,
+    LongShift,
+    SaturdayShift,
+    SundayShift,
+    OnCallDuty,
+    Standby
+}
+
+public enum QuotaPeriod
+{
+    Week,
+    Month
+}
+
+public enum QuotaSeverity
+{
+    Preferred,
+    Required
+}
+
 public enum EmployeeTimeWindowType
 {
     Preferred,

@@ -110,4 +110,85 @@ public sealed class InputValidationTests
         Assert.IsTrue(transitionErrors.Any(error =>
             error.Code == "LEAVE_DECISION_REASON_REQUIRED" && error.Field == "reason"));
     }
+
+    [TestMethod]
+    public void Phase2BOpeningCoverageAndShiftTemplateErrorsUsePublicFields()
+    {
+        var openingErrors = InputValidation.ValidateOpeningWeek(
+            [new OpeningDayRequest(
+                DayOfWeek.Monday,
+                OpeningDayMode.CustomIntervals,
+                [])]);
+        var coverageErrors = InputValidation.ValidateCoverageRequirement(
+            new TimeOnly(18, 0),
+            new TimeOnly(8, 0),
+            0);
+        var templateErrors = InputValidation.ValidateShiftTemplate(
+            " ",
+            [],
+            new TimeOnly(18, 0),
+            new TimeOnly(8, 0));
+
+        Assert.IsTrue(openingErrors.All(error => error.Field == "days"));
+        Assert.IsTrue(coverageErrors.Any(error => error.Field == "requiredCount"));
+        Assert.IsTrue(templateErrors.Any(error => error.Field == "name"));
+        Assert.IsTrue(templateErrors.Any(error => error.Field == "weekdays"));
+    }
+
+    [TestMethod]
+    public void Phase2BWorkProfileQuotaAndCapabilitiesAreMapped()
+    {
+        var request = new UpdateEmployeeWorkProfileRequest(
+            ContractedMonthlyMinutes: 0,
+            ContractedWeeklyMinutes: null,
+            StandardShiftMinutes: 480,
+            MinimumShiftMinutes: 600,
+            MaximumRegularShiftMinutes: 400,
+            MaximumDailyMinutes: 360,
+            AllowsLongShift: false,
+            MaximumLongShiftMinutes: 720,
+            AllowsFullOpeningHoursShift: false,
+            AllowsOvertime: false,
+            MaximumOvertimeMinutesPerMonth: null,
+            AllowsOnCallDuty: false,
+            MaximumOnCallAssignmentsPerMonth: null,
+            AllowsStandby: false,
+            MaximumStandbyAssignmentsPerMonth: null,
+            AllowsSaturday: false,
+            MaximumSaturdaysPerMonth: null,
+            AllowsSunday: false,
+            MaximumSundaysPerMonth: null,
+            IncludeInAutoFill: true,
+            ExpectedVersion: null);
+
+        var profileErrors = InputValidation.ValidateWorkProfile(
+            request,
+            employeeIsActive: false,
+            employeeIsSchedulable: false);
+        var quotaErrors = InputValidation.ValidateShiftQuota(3, 2, 1);
+        var capabilityErrors = InputValidation.ValidateCapabilities(
+            [StaffingCapability.Pharmacist, StaffingCapability.Pharmacist]);
+
+        Assert.IsTrue(profileErrors.Any(error => error.Field == "contractedMonthlyMinutes"));
+        Assert.IsTrue(profileErrors.Any(error => error.Field == "includeInAutoFill"));
+        Assert.IsTrue(quotaErrors.Any(error => error.Code == "SHIFT_QUOTA_ORDER"));
+        Assert.HasCount(1, capabilityErrors);
+    }
+
+    [TestMethod]
+    public void Phase2BRequiredCollectionsAreValidatedWithoutThrowing()
+    {
+        var openingErrors = InputValidation.ValidateOpeningWeek(null);
+        var templateErrors = InputValidation.ValidateShiftTemplate(
+            null,
+            null,
+            new TimeOnly(8, 0),
+            new TimeOnly(16, 0));
+        var capabilityErrors = InputValidation.ValidateCapabilities(null);
+
+        Assert.HasCount(1, openingErrors);
+        Assert.IsTrue(templateErrors.Any(error => error.Field == "name"));
+        Assert.IsTrue(templateErrors.Any(error => error.Field == "weekdays"));
+        Assert.HasCount(1, capabilityErrors);
+    }
 }

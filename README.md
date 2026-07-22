@@ -115,10 +115,13 @@ dotnet test PatikaBeosztas.slnx --no-build --configuration Release
 ```
 
 A biztonsági integrációs tesztek valódi `postgres:17-alpine` Testcontainers
-adatbázist használnak. Docker hiányában ezek `Skipped` állapotúak; ilyenkor
-PostgreSQL-specifikus működés nem tekinthető ellenőrzöttnek.
+adatbázist használnak. A teljes tesztfuttatáshoz működő Docker runtime kötelező;
+hiányában az integrációs teszt assembly indítása hibával leáll, nem `Skipped`
+eredménnyel tesz úgy, mintha a PostgreSQL-specifikus működés ellenőrzött volna.
 
 Részletes fázisleírás: `docs/PHASE_1_IMPLEMENTATION.md`.
+A Phase 2B nyitvatartási, coverage- és munkaprofil runtime-szelete:
+`docs/PHASE_2B_IMPLEMENTATION.md`.
 A Phase 1.5 hardening, frontend-integráció és production checklist:
 `docs/PHASE_1_5_HARDENING.md`.
 A későbbi beosztásmotor frontend–backend közös termékdöntése:

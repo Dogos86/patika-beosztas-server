@@ -51,6 +51,33 @@
 15. Műszak rögzítése/feloldása, javaslat elutasítása, generálás,
     újragenerálás, jóváhagyás és közzététel auditált.
 
+## Phase 2B tervezési alapok
+
+1. Heti nyitvatartás Closed, Open24Hours és több CustomIntervals napot ment és
+   olvas vissza; átfedő vagy rendezetlen intervallum 422.
+2. Stale nyitvatartás, műszaksablon, coverage, capability-aggregate,
+   munkaprofil vagy kvóta verzió 409.
+3. Műszaksablon CRUD napmaszkot, kategóriát és opcionális capabilityt kezel;
+   inaktiválás auditált.
+4. SpecialistPharmacist → Pharmacist és SpecialistAssistant → Assistant
+   implikáció érvényes; a meglévő gyógyszertárvezető/CountsAsPharmacist adat
+   explicit Pharmacist capabilityt kap.
+5. Átfedő coverage-szabályok szükséges létszáma azonos capabilitynél maximum,
+   nem összeg; nyitvatartáson kívül explicit warning jelenik meg.
+6. Inaktív telephely rekordjai tárolhatók, de a tervezési jogosultság hamis és
+   a coverage válasz kizárási figyelmeztetést ad.
+7. Munkaprofil min/standard/max, feltételes limitek és autofill-feltételek
+   szerveroldalon validáltak.
+8. Kvótánál min ≤ target ≤ max és a dolgozó/dimenzió/periódus egyediség
+   érvényes.
+9. Ismert idegen szervezeti GUID 404, hiányzó CSRF token 400, jogosulatlan
+   permission 403; sikeres mutáció auditált.
+10. Napi blokknál 08–14 + 14–18 és az átfedés összeolvad; hézag
+    `SPLIT_SHIFT_NOT_ALLOWED`, más telephely
+    `MULTI_LOCATION_SAME_DAY_NOT_ALLOWED`.
+11. 08–16 Work + 16–18 Overtime egy 08–18 assignmentet és két könyvelési
+    szegmenst ad; napi maximum túllépése és DST-hibás lokális idő elutasított.
+
 ## Munkatér és magyarázhatóság
 
 1. A dolgozói, telephelyi és problémaprojekció ugyanarra a schedule- és

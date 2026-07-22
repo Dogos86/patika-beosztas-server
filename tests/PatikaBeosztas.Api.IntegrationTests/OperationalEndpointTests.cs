@@ -26,7 +26,7 @@ public sealed class OperationalEndpointTests
     }
 
     [TestMethod]
-    public async Task OpenApiDocumentsPhase2AEndpointsContractsAndCookieSecurity()
+    public async Task OpenApiDocumentsPhase2BEndpointsContractsAndCookieSecurity()
     {
         await using var application = new ApiFactory(UnusedConnectionString);
         using var client = application.CreateHttpsClient();
@@ -70,6 +70,30 @@ public sealed class OperationalEndpointTests
         {
             Assert.IsTrue(paths.TryGetProperty(path, out _), $"Hiányzó OpenAPI útvonal: {path}");
         }
+
+        var phase2BPaths = new[]
+        {
+            "/api/admin/locations/{locationId}/weekly-opening",
+            "/api/admin/locations/{locationId}/shift-templates",
+            "/api/admin/location-shift-templates/{id}",
+            "/api/admin/location-shift-templates/{id}/deactivate",
+            "/api/admin/coverage-requirements",
+            "/api/admin/coverage-requirements/{id}",
+            "/api/admin/coverage-requirements/{id}/deactivate",
+            "/api/admin/employees/{employeeId}/capabilities",
+            "/api/admin/employees/{employeeId}/work-profile",
+            "/api/admin/employees/{employeeId}/shift-quota-rules",
+            "/api/admin/employee-shift-quota-rules/{id}",
+            "/api/admin/employee-shift-quota-rules/{id}/deactivate"
+        };
+        foreach (var path in phase2BPaths)
+        {
+            Assert.IsTrue(paths.TryGetProperty(path, out _), $"Hiányzó OpenAPI útvonal: {path}");
+        }
+
+        Assert.AreEqual(
+            "0.3.0-phase2b",
+            root.GetProperty("info").GetProperty("version").GetString());
         Assert.AreEqual(
             "__Host-PatikaSession",
             schemes.GetProperty("cookieAuth").GetProperty("name").GetString());
@@ -131,6 +155,24 @@ public sealed class OperationalEndpointTests
                 .EnumerateArray()
                 .Any(parameter =>
                     parameter.GetProperty("name").GetString() == "X-CSRF-TOKEN"));
+        Assert.IsTrue(
+            paths.GetProperty("/api/admin/locations/{locationId}/weekly-opening")
+                .GetProperty("put")
+                .GetProperty("parameters")
+                .EnumerateArray()
+                .Any(parameter =>
+                    parameter.GetProperty("name").GetString() == "X-CSRF-TOKEN"));
+        Assert.IsTrue(
+            schemas.GetProperty("LocationWeeklyOpeningResponse")
+                .GetProperty("properties")
+                .TryGetProperty("version", out _));
+        Assert.IsTrue(
+            schemas.GetProperty("EmployeeWorkProfileResponse")
+                .GetProperty("properties")
+                .TryGetProperty("maximumDailyMinutes", out _));
+        Assert.Contains("StaffingCapability", body, StringComparison.Ordinal);
+        Assert.Contains("ManageCoverageRules", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("WeekendWork", body, StringComparison.Ordinal);
         Assert.Contains("ManageWorkPreferences", body, StringComparison.Ordinal);
         Assert.Contains("RecordLeaveForOthers", body, StringComparison.Ordinal);
         Assert.DoesNotContain("diagnos", body, StringComparison.OrdinalIgnoreCase);

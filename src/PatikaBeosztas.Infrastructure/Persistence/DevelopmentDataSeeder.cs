@@ -184,6 +184,31 @@ public static class DevelopmentDataSeeder
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        var pharmacistEmployeeIds = await dbContext.Employees
+            .Where(employee =>
+                employee.OrganizationId == OrganizationId &&
+                (employee.CountsAsPharmacist ||
+                 employee.ProfessionalRole == ProfessionalRole.PharmacyManager))
+            .Select(employee => employee.Id)
+            .ToArrayAsync(cancellationToken);
+        var existingPharmacistCapabilityIds = await dbContext.EmployeeCapabilities
+            .Where(capability =>
+                capability.OrganizationId == OrganizationId &&
+                capability.Capability == StaffingCapability.Pharmacist &&
+                pharmacistEmployeeIds.Contains(capability.EmployeeId))
+            .Select(capability => capability.EmployeeId)
+            .ToArrayAsync(cancellationToken);
+        dbContext.EmployeeCapabilities.AddRange(
+            pharmacistEmployeeIds.Except(existingPharmacistCapabilityIds).Select(employeeId =>
+                new EmployeeCapability
+                {
+                    OrganizationId = OrganizationId,
+                    EmployeeId = employeeId,
+                    Capability = StaffingCapability.Pharmacist,
+                    AssignedAtUtc = now
+                }));
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private static Employee CreateEmployee(

@@ -55,6 +55,14 @@ létrehozást, módosítást és státuszátmenetet. A LeaveStatusHistory és az
 AuditLog meglévő sorai alkalmazási mentésen keresztül nem módosíthatók és
 nem törölhetők.
 
+A Phase 2B auditálja a heti nyitvatartás upsertjét, a műszaksablon és coverage
+követelmény létrehozását, módosítását és inaktiválását, továbbá a dolgozói
+capability-készlet, munkaprofil és műszakkvóta minden változását. A rekordok
+szervezeti határát kompozit idegen kulcsok is védik; ismert idegen szervezeti
+GUID 404-et ad. Minden Phase 2B mutáció cookie-auth, permission policy és
+antiforgery ellenőrzés után fut, stale `xmin` esetén 409-cel és auditmutáció
+nélkül áll meg.
+
 Az audit tartalmazza az aktort, időpontot, szervezetet, entitást, műveletet és korrelációs azonosítót, de ne másolja be korlátlanul az érzékeny szabad szöveget.
 
 A generálási audit ezen felül az algoritmus verzióját, a kért időszakot és
