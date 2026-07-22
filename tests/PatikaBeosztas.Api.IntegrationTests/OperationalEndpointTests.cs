@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using PatikaBeosztas.Domain;
 
 namespace PatikaBeosztas.Api.IntegrationTests;
 
@@ -148,6 +149,15 @@ public sealed class OperationalEndpointTests
             schemas.GetProperty("LeaveRequestResponse")
                 .GetProperty("properties")
                 .TryGetProperty("diagnosis", out _));
+        AssertStringEnumSchema(
+            schemas.GetProperty(nameof(LeaveType)),
+            Enum.GetNames<LeaveType>());
+        AssertStringEnumSchema(
+            schemas.GetProperty(nameof(LeaveRequestStatus)),
+            Enum.GetNames<LeaveRequestStatus>());
+        AssertStringEnumSchema(
+            schemas.GetProperty(nameof(LeaveDecision)),
+            Enum.GetNames<LeaveDecision>());
         Assert.IsTrue(
             paths.GetProperty("/api/me/leave-requests")
                 .GetProperty("post")
@@ -242,5 +252,18 @@ public sealed class OperationalEndpointTests
             "érvénytelen vagy lejárt",
             describer.InvalidToken().Description,
             StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void AssertStringEnumSchema(
+        JsonElement schema,
+        string[] expectedValues)
+    {
+        Assert.AreEqual("string", schema.GetProperty("type").GetString());
+        CollectionAssert.AreEqual(
+            expectedValues,
+            schema.GetProperty("enum")
+                .EnumerateArray()
+                .Select(value => value.GetString())
+                .ToArray());
     }
 }

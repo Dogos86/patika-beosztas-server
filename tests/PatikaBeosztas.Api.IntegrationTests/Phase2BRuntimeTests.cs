@@ -2,7 +2,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -20,7 +19,7 @@ namespace PatikaBeosztas.Api.IntegrationTests;
     Justification = "MSTest invokes the asynchronous TestCleanup method after every test.")]
 public sealed class Phase2BRuntimeTests
 {
-    private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
+    private static readonly JsonSerializerOptions JsonOptions = IntegrationJson.Options;
 
     private ApiFactory application = null!;
     private HttpClient client = null!;
@@ -80,6 +79,11 @@ public sealed class Phase2BRuntimeTests
         Assert.HasCount(2, Day(created, DayOfWeek.Tuesday).Intervals);
         Assert.IsNull(Day(created, DayOfWeek.Tuesday).Intervals[1].EndTime);
 
+        using var currentResponse = await client.GetAsync(
+            $"/api/admin/locations/{IntegrationTestData.LocalLocationId}/weekly-opening");
+        var current = await ReadAsync<LocationWeeklyOpeningResponse>(currentResponse);
+        Assert.AreEqual(created.Version, current.Version);
+
         var updateRequest = createRequest with
         {
             Days = OpeningWeek(
@@ -89,7 +93,7 @@ public sealed class Phase2BRuntimeTests
                     [new OpeningIntervalRequest(
                         new TimeOnly(8, 0),
                         new TimeOnly(18, 0))])),
-            ExpectedVersion = created.Version
+            ExpectedVersion = current.Version
         };
         using var updateResponse = await SendWithCsrfAsync(
             HttpMethod.Put,
@@ -104,6 +108,10 @@ public sealed class Phase2BRuntimeTests
             $"/api/admin/locations/{IntegrationTestData.LocalLocationId}/weekly-opening",
             updateRequest);
         Assert.AreEqual(HttpStatusCode.Conflict, staleResponse.StatusCode);
+        Assert.Contains(
+            "CONCURRENCY_CONFLICT",
+            await staleResponse.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal);
 
         using var getResponse = await client.GetAsync(
             $"/api/admin/locations/{IntegrationTestData.LocalLocationId}/weekly-opening");
@@ -648,16 +656,5 @@ public sealed class Phase2BRuntimeTests
     }
 
     private static async Task<T> ReadAsync<T>(HttpResponseMessage response)
-    {
-        var result = await response.Content.ReadFromJsonAsync<T>(JsonOptions);
-        Assert.IsNotNull(result);
-        return result;
-    }
-
-    private static JsonSerializerOptions CreateJsonOptions()
-    {
-        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-        options.Converters.Add(new JsonStringEnumConverter());
-        return options;
-    }
+        => await IntegrationJson.ReadSuccessAsync<T>(response);
 }

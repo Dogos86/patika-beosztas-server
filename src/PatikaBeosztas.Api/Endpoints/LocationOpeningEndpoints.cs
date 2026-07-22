@@ -155,7 +155,8 @@ public static class LocationOpeningEndpoints
             throw new InvalidOperationException("A nyitvatartási aggregate nem jött létre.");
         }
 
-        ApplyDays(opening, request.Days);
+        var addedIntervals = ApplyDays(opening, request.Days);
+        dbContext.OpeningIntervals.AddRange(addedIntervals);
         auditWriter.Add(
             actor.OrganizationId,
             actor.Id,
@@ -190,16 +191,17 @@ public static class LocationOpeningEndpoints
             .Include(opening => opening.Location)
             .Include(opening => opening.Intervals);
 
-    private static void ApplyDays(
+    private static List<OpeningInterval> ApplyDays(
         LocationWeeklyOpening opening,
         IReadOnlyList<OpeningDayRequest> days)
     {
+        var addedIntervals = new List<OpeningInterval>();
         foreach (var day in days)
         {
             opening.SetMode(day.DayOfWeek, day.Mode);
             foreach (var interval in day.Intervals)
             {
-                opening.Intervals.Add(new OpeningInterval
+                var addedInterval = new OpeningInterval
                 {
                     Id = Guid.NewGuid(),
                     OrganizationId = opening.OrganizationId,
@@ -207,9 +209,13 @@ public static class LocationOpeningEndpoints
                     DayOfWeek = day.DayOfWeek,
                     StartTime = interval.StartTime,
                     EndTime = interval.EndTime
-                });
+                };
+                opening.Intervals.Add(addedInterval);
+                addedIntervals.Add(addedInterval);
             }
         }
+
+        return addedIntervals;
     }
 
     private static LocationWeeklyOpeningResponse Map(LocationWeeklyOpening opening) =>

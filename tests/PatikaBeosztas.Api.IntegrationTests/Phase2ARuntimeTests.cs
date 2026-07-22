@@ -3,7 +3,6 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -21,7 +20,7 @@ namespace PatikaBeosztas.Api.IntegrationTests;
     Justification = "MSTest invokes the asynchronous TestCleanup method after every test.")]
 public sealed class Phase2ARuntimeTests
 {
-    private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
+    private static readonly JsonSerializerOptions JsonOptions = IntegrationJson.Options;
 
     private ApiFactory application = null!;
     private HttpClient client = null!;
@@ -312,8 +311,8 @@ public sealed class Phase2ARuntimeTests
             HttpMethod.Post,
             $"/api/me/leave-requests/{draft.Id}/submit",
             new LeaveVersionRequest(draft.Version));
-        var pending = await submitResponse.Content.ReadFromJsonAsync<LeaveRequestResponse>(
-            JsonOptions);
+        var pending = await IntegrationJson.ReadSuccessAsync<LeaveRequestResponse>(
+            submitResponse);
         Assert.AreEqual(HttpStatusCode.OK, submitResponse.StatusCode);
         Assert.IsNotNull(pending);
         Assert.AreEqual(LeaveRequestStatus.Pending, pending.Status);
@@ -334,8 +333,8 @@ public sealed class Phase2ARuntimeTests
                 LeaveDecision.Approve,
                 "Jóváhagyva.",
                 pending.Version));
-        var approved = await decisionResponse.Content
-            .ReadFromJsonAsync<LeaveRequestResponse>(JsonOptions);
+        var approved = await IntegrationJson.ReadSuccessAsync<LeaveRequestResponse>(
+            decisionResponse);
         Assert.AreEqual(HttpStatusCode.OK, decisionResponse.StatusCode);
         Assert.IsNotNull(approved);
         Assert.AreEqual(LeaveRequestStatus.Approved, approved.Status);
@@ -383,8 +382,8 @@ public sealed class Phase2ARuntimeTests
                 null,
                 null,
                 null));
-        var otherLeave = await adminCreateResponse.Content
-            .ReadFromJsonAsync<LeaveRequestResponse>(JsonOptions);
+        var otherLeave = await IntegrationJson.ReadSuccessAsync<LeaveRequestResponse>(
+            adminCreateResponse);
         Assert.AreEqual(HttpStatusCode.Created, adminCreateResponse.StatusCode);
         Assert.IsNotNull(otherLeave);
 
@@ -445,8 +444,8 @@ public sealed class Phase2ARuntimeTests
             HttpMethod.Post,
             $"/api/admin/leave-requests/{reported.Id}/record",
             new LeaveVersionRequest(reported.Version));
-        var recorded = await recordResponse.Content.ReadFromJsonAsync<LeaveRequestResponse>(
-            JsonOptions);
+        var recorded = await IntegrationJson.ReadSuccessAsync<LeaveRequestResponse>(
+            recordResponse);
         Assert.AreEqual(HttpStatusCode.OK, recordResponse.StatusCode);
         Assert.IsNotNull(recorded);
         Assert.AreEqual(LeaveRequestStatus.Recorded, recorded.Status);
@@ -457,8 +456,8 @@ public sealed class Phase2ARuntimeTests
             new CloseSickLeaveRequest(
                 new DateOnly(2026, 9, 18),
                 recorded.Version));
-        var closed = await closeResponse.Content.ReadFromJsonAsync<LeaveRequestResponse>(
-            JsonOptions);
+        var closed = await IntegrationJson.ReadSuccessAsync<LeaveRequestResponse>(
+            closeResponse);
         Assert.AreEqual(HttpStatusCode.OK, closeResponse.StatusCode);
         Assert.IsNotNull(closed);
         Assert.AreEqual(LeaveRequestStatus.Closed, closed.Status);
@@ -510,10 +509,8 @@ public sealed class Phase2ARuntimeTests
             HttpMethod.Post,
             "/api/me/leave-requests",
             request);
-        var result = await response.Content.ReadFromJsonAsync<LeaveRequestResponse>(
-            JsonOptions);
+        var result = await IntegrationJson.ReadSuccessAsync<LeaveRequestResponse>(response);
         Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
-        Assert.IsNotNull(result);
         return result;
     }
 
@@ -553,10 +550,4 @@ public sealed class Phase2ARuntimeTests
         return token;
     }
 
-    private static JsonSerializerOptions CreateJsonOptions()
-    {
-        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-        options.Converters.Add(new JsonStringEnumConverter());
-        return options;
-    }
 }

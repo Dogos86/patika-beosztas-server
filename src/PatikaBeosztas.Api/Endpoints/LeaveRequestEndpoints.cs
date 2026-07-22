@@ -700,7 +700,7 @@ public static class LeaveRequestEndpoints
             leave.DecidedAtUtc = now;
         }
 
-        leave.StatusHistory.Add(new LeaveStatusHistory
+        var history = new LeaveStatusHistory
         {
             Id = Guid.NewGuid(),
             OrganizationId = leave.OrganizationId,
@@ -710,7 +710,9 @@ public static class LeaveRequestEndpoints
             ActorUserId = actor.Id,
             OccurredAtUtc = now,
             Reason = NormalizeOptional(reason)
-        });
+        };
+        leave.StatusHistory.Add(history);
+        dbContext.LeaveStatusHistories.Add(history);
         auditWriter.Add(
             actor.OrganizationId,
             actor.Id,

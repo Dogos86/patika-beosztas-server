@@ -43,6 +43,20 @@ builder.Services.AddOpenApi(options =>
             Name = "__Host-PatikaSession",
             Description = "HttpOnly, Secure Identity munkamenet-cookie."
         };
+        foreach (var schemaName in new[]
+        {
+            nameof(LeaveType),
+            nameof(LeaveRequestStatus),
+            nameof(LeaveDecision)
+        })
+        {
+            if (document.Components.Schemas?.TryGetValue(schemaName, out var schema) == true &&
+                schema is OpenApiSchema enumSchema)
+            {
+                enumSchema.Type = JsonSchemaType.String;
+            }
+        }
+
         return Task.CompletedTask;
     });
     options.AddOperationTransformer((operation, context, _) =>
