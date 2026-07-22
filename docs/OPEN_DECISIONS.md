@@ -71,6 +71,76 @@ A Phase 1.5 nem változtatott a meglévő szabályon: az egymást metsző által
 felülírási szabálya üzleti döntést igényel; addig ezt nem szabad önkényesen
 módosítani.
 
+## Generálás-központú beosztás
+
+A generálás-központú termékirány, a három admin projekció, a korlátozott
+korrekciók, valamint a `Generating` → `Draft` → `UnderReview` → `Approved` →
+`Published` → `Archived` állapotkészlet eldöntött. Az alábbi részletszabályokat
+a Phase 3 érintett szelete előtt kell lezárni.
+
+### GEN-001 – Hard korlátok és soft célok
+
+A közös döntés felsorolja a generátor bemeneteit és a megjelenítendő
+problémákat, de nem mondja meg minden elem súlyosságát. Dönteni kell legalább:
+
+- a napi és havi keret hard vagy soft jellegéről;
+- a határozott elérhetetlenség megsértésének megengedhetőségéről;
+- mely coverage-szabályok blokkolók, illetve csak figyelmeztetők;
+- mely hibák blokkolják már a generált Draft létrehozását, és melyek csak a
+  review/jóváhagyás/közzététel átmenetet.
+
+### GEN-002 – Függő kérelmek kezelési módja
+
+A generátor konfigurált módon vegye figyelembe a függő kérelmeket, de a módok
+nincsenek definiálva. Döntés kell, hogy kizárás, soft büntetés, figyelmen kívül
+hagyás vagy más policy választható-e, ki állíthatja, és a beállítás
+szervezet-, futás- vagy beosztásszintű-e.
+
+### GEN-003 – Fairness célfüggvény és reprodukálhatóság
+
+Meg kell határozni a hétvégi, délutáni/esti és telephelyi terhelés mérését, a
+vizsgált történeti időablakot, a célok egymáshoz és a preferenciákhoz képesti
+súlyát, valamint az azonos pontszámú jelöltek determinisztikus tie-break
+szabályát.
+
+### GEN-004 – Részleges újragenerálási scope
+
+Nyitott a nap, hét, telephely, szerepkör és kijelölt problémák scope-jának
+pontos metszési szabálya. Dönteni kell, mi változhat a scope határán kívül, mi
+történik egymást átfedő kijelöléseknél, illetve miként jelez a rendszer, ha a
+rögzített műszakok miatt a kiválasztott probléma nem oldható meg.
+
+### GEN-005 – Elutasított javaslat élettartama
+
+Meg kell határozni, hogy egy elutasítás csak az aktuális futásban, az aktuális
+Draftban, az adott időszakban vagy tartósabban érvényes-e; kötelező-e indok;
+ki vonhatja vissza; és a generátor mikor javasolhatja újra ugyanazt a műszakot.
+
+### GEN-006 – Published verzió és állapotátmenetek
+
+A dolgozó csak Published beosztást láthat, és a munkatérnek az utolsó
+közzétett változathoz képesti diffet kell mutatnia. Dönteni kell:
+
+- egy Schedule több immutable revisiont tart-e, vagy az új Draft külön
+  Schedule;
+- új közzétételkor mi lesz az előző Published verzió státusza;
+- módosítható-e Approved beosztás Draftba visszaléptetéssel;
+- milyen értesítés jár új közzétételhez és közzétett műszak változásához.
+
+### GEN-007 – Magyarázat és alternatívák megőrzése
+
+Nyitott, hogy a strukturált döntési indokokat és az alternatív jelöltek
+pontozását teljesen tároljuk-e, determinisztikusan újraszámoljuk-e, vagy
+snapshotolt részhalmazt őrzünk. Rögzíteni kell a megőrzési időt, a jogosult
+olvasókat és az auditban tárolható részletességet.
+
+### GEN-008 – Időszak és naptári határok
+
+A hét kezdőnapja, a „két hét” pontos intervalluma, a hónapnézet tört heteinek
+kezelése, valamint a hétvégi és délutáni/esti kategóriák szervezeti definíciója
+nincs rögzítve. Ezek nélkül a frontend intervallumválasztása, a generátor és a
+sorösszesítések eltérően számolhatnak.
+
 ## Hitelesítés és üzemeltetés
 
 Az 1. fázis aktív promptja az első implementációra ASP.NET Core Identity +

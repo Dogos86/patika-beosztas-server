@@ -38,8 +38,17 @@ Legalább:
 - jóváhagyás/elutasítás;
 - admin más nevében rögzít;
 - műszak létrehozás/módosítás/törlés;
-- beosztás jóváhagyás;
+- teljes vagy részleges generálás indítása és befejezése;
+- műszak rögzítése/feloldása és generált javaslat elutasítása;
+- beosztás review, jóváhagyás, közzététel és archiválás állapotátmenete;
 - jogosultság módosítás;
 - AI előnézet végrehajtása.
 
 Az audit tartalmazza az aktort, időpontot, szervezetet, entitást, műveletet és korrelációs azonosítót, de ne másolja be korlátlanul az érzékeny szabad szöveget.
+
+A generálási audit ezen felül az algoritmus verzióját, a kért időszakot és
+scope-ot, a bemeneti snapshot stabil referenciáját, az idempotency-referenciát
+és az eredmény összefoglalóját rögzíti. A magyarázhatósági adat és az
+alternatív jelöltek listája érzékeny dolgozói adat: csak a szükséges admin
+jogosultsággal és szervezeti határon belül kérdezhető le, teljes tartalma nem
+kerül általános alkalmazásnaplóba.

@@ -60,9 +60,21 @@ Dolgozó:
 
 Admin/beosztáskészítő megfelelő permissionnel:
 - más nevében távollét;
-- műszak létrehozás/módosítás/törlés;
-- időszak másolása;
-- automatikus kitöltés;
+- teljes időszak generálása;
+- műszak rögzítése vagy feloldása;
+- generált javaslat elutasítása;
+- alternatív dolgozók keresése;
+- részleges újragenerálás napra, hétre, telephelyre, szerepkörre vagy kijelölt
+  problémákra;
 - dolgozói preferencia módosítása.
 
-A séma: `contracts/ai-command.schema.json`.
+Az AI ugyanazokat a generálási és korrekciós application use case-eket hívja,
+mint az admin felület. A teljes kézi műszak-CRUD nem kerül be ebbe a fázisba
+csak azért, mert AI-csatornán kérhető lenne. A műszak, dolgozó, telephely,
+szerepkör és probléma azonosítóját a resolver szervezeten belül oldja fel; a
+modell által visszaadott adatbázis-ID nem megbízható.
+
+A `contracts/ai-command.schema.json` 1.1-es vázlata a fenti allowlist
+fogalmait használja. A Phase 4-ben minden action paramétereit külön, zárt
+sémával kell rögzíteni; addig a fájl nem tekinthető végrehajtható AI-API
+szerződésnek.

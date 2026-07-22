@@ -19,6 +19,12 @@ Az 1. fázis API-ja ezek közül a `ManageEmployees`, `ManageLocations` és
 `ManageUsers` policy-ket használja. A többi permission a következő
 vertikális szeletek stabil neve.
 
+A generálás-központú beosztási fázisban a teljes és részleges generálás
+`RunAutoFill`, a beosztás állapotátmenetei és korlátozott korrekciói
+`ManageSchedules`, a coverage-szabályok karbantartása
+`ManageCoverageRules` permissionhöz kötött. Ha egy use case több képességet
+érint, minden szükséges permissiont a szerver ellenőriz.
+
 ### Professional roles
 - PharmacyManager
 - Pharmacist

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.invalid/schemas/ai-command-preview-v1.json",
-  "title": "Patika Beosztás AI Command Preview v1",
+  "$id": "https://example.invalid/schemas/ai-command-preview-v1.1.json",
+  "title": "Patika Beosztás AI Command Preview v1.1",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -15,7 +15,7 @@
   ],
   "properties": {
     "schemaVersion": {
-      "const": "1.0"
+      "const": "1.1"
     },
     "intent": {
       "type": "string",
@@ -23,11 +23,12 @@
         "create_leave_request",
         "report_sick_leave",
         "withdraw_leave_request",
-        "create_shift",
-        "update_shift",
-        "delete_shift",
-        "copy_schedule_period",
-        "run_autofill",
+        "lock_shift",
+        "unlock_shift",
+        "reject_generated_shift",
+        "run_schedule_generation",
+        "run_partial_schedule_regeneration",
+        "find_alternative_employees",
         "update_employee_preferences",
         "query_schedule",
         "unknown"
@@ -56,11 +57,12 @@
               "REPORT_SELF_SICK_LEAVE",
               "CREATE_LEAVE_FOR_EMPLOYEE",
               "WITHDRAW_SELF_LEAVE_REQUEST",
-              "CREATE_SHIFT",
-              "UPDATE_SHIFT",
-              "DELETE_SHIFT",
-              "COPY_SCHEDULE_PERIOD",
-              "RUN_AUTOFILL",
+              "LOCK_SHIFT",
+              "UNLOCK_SHIFT",
+              "REJECT_GENERATED_SHIFT",
+              "RUN_SCHEDULE_GENERATION",
+              "RUN_PARTIAL_SCHEDULE_REGENERATION",
+              "FIND_ALTERNATIVE_EMPLOYEES",
               "UPDATE_EMPLOYEE_PREFERENCES",
               "QUERY_OWN_SCHEDULE"
             ]

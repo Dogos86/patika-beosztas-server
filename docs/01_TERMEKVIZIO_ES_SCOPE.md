@@ -10,6 +10,12 @@ Többfelhasználós rendszer gyógyszertári dolgozók és vezetők számára, a
 - a több telephelyes lefedettség ellenőrzését;
 - a gépelt és diktált AI-alapú adatbevitelt.
 
+A beosztáskészítés generálás-központú: az admin a dolgozói igényekből,
+távollétekből, telephelyi szabályokból és időkeretekből előállított teljes
+időszakot ellenőrzi, magyarázza, célzottan újragenerálja, majd jóváhagyja és
+közzéteszi. A közös termékdöntés részlete:
+`docs/13_GENERALAS_KOZPONTU_BEOSZTAS.md`.
+
 ## Felhasználók
 
 ### Dolgozó
@@ -22,7 +28,8 @@ Többfelhasználós rendszer gyógyszertári dolgozók és vezetők számára, a
 - más nevében rögzítés;
 - kérelmek jóváhagyása és elutasítása;
 - dolgozók, telephelyek, lefedettségi szabályok;
-- beosztás készítése és jóváhagyása;
+- automatikus beosztásgenerálás, eredmény- és problémaellenőrzés;
+- korlátozott korrekciók, részleges újragenerálás, jóváhagyás és közzététel;
 - saját dolgozói funkciók is.
 
 ## Első kiadás
@@ -43,5 +50,7 @@ Többfelhasználós rendszer gyógyszertári dolgozók és vezetők számára, a
 - bérszámfejtő rendszer;
 - diagnózis vagy részletes egészségügyi dokumentáció;
 - automatikus, emberi jóváhagyás nélküli AI-módosítás;
+- teljes drag-and-drop kézi beosztásszerkesztő és tömeges kézi áthelyezés;
+- mobilon teljes időrácsos admin szerkesztés;
 - natív mobilalkalmazás külön kódbázissal;
 - több ország jogszabályi kezelése.

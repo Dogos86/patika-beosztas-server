@@ -17,7 +17,9 @@ Ez a csomag a **VS Code + Codex** számára készült. A cél az ASP.NET Core .N
 1. Audit és skeleton
 2. Szervezet, felhasználók, jogosultságok
 3. Szabadság- és távollétkezelés
-4. Régi beosztásmotor migrációja
+4. Generálás-központú beosztásmotor és a legacy logika ellenőrzött migrációja
 5. AI- és diktálási adapterek
 
 A `contracts/` mappában lévő fájlok a frontendcsomagban is azonos változatban szerepelnek.
+A frontend és backend közös beosztási termékdöntése:
+`docs/13_GENERALAS_KOZPONTU_BEOSZTAS.md`.

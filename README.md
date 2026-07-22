@@ -121,3 +121,6 @@ PostgreSQL-specifikus működés nem tekinthető ellenőrzöttnek.
 Részletes fázisleírás: `docs/PHASE_1_IMPLEMENTATION.md`.
 A Phase 1.5 hardening, frontend-integráció és production checklist:
 `docs/PHASE_1_5_HARDENING.md`.
+A későbbi beosztásmotor frontend–backend közös termékdöntése:
+`docs/13_GENERALAS_KOZPONTU_BEOSZTAS.md`; a végrehajtási sorrendet a
+`prompts/03_FAZIS_BEOSZTAS_MIGRACIO.md` rögzíti.
