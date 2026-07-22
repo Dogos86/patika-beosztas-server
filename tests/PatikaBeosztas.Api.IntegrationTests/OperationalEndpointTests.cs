@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -41,11 +42,27 @@ public sealed class OperationalEndpointTests
         var schemes = root.GetProperty("components").GetProperty("securitySchemes");
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
-        Assert.IsTrue(paths.TryGetProperty("/api/auth/session", out _));
-        Assert.IsTrue(paths.TryGetProperty("/api/admin/employees", out _));
-        Assert.IsTrue(paths.TryGetProperty("/api/admin/locations", out _));
-        Assert.IsTrue(paths.TryGetProperty("/api/admin/users", out _));
-        Assert.IsTrue(paths.TryGetProperty("/api/admin/users/{id}", out _));
+        var phase1Paths = new[]
+        {
+            "/api/auth/csrf",
+            "/api/auth/login",
+            "/api/auth/logout",
+            "/api/auth/session",
+            "/api/admin/employees",
+            "/api/admin/employees/{id}",
+            "/api/admin/locations",
+            "/api/admin/locations/{id}",
+            "/api/admin/users",
+            "/api/admin/users/{id}",
+            "/api/admin/users/{id}/permissions",
+            "/api/admin/users/{id}/employee-link",
+            "/api/admin/users/{id}/status"
+        };
+        foreach (var path in phase1Paths)
+        {
+            Assert.IsTrue(paths.TryGetProperty(path, out _), $"Hiányzó OpenAPI útvonal: {path}");
+        }
+
         var phase2APaths = new[]
         {
             "/api/me/work-preferences",
@@ -149,15 +166,32 @@ public sealed class OperationalEndpointTests
             schemas.GetProperty("LeaveRequestResponse")
                 .GetProperty("properties")
                 .TryGetProperty("diagnosis", out _));
-        AssertStringEnumSchema(
-            schemas.GetProperty(nameof(LeaveType)),
-            Enum.GetNames<LeaveType>());
-        AssertStringEnumSchema(
-            schemas.GetProperty(nameof(LeaveRequestStatus)),
-            Enum.GetNames<LeaveRequestStatus>());
-        AssertStringEnumSchema(
-            schemas.GetProperty(nameof(LeaveDecision)),
-            Enum.GetNames<LeaveDecision>());
+        var publicEnumTypes = new[]
+        {
+            typeof(ApplicationPermission),
+            typeof(ProfessionalRole),
+            typeof(LocationType),
+            typeof(EmployeeTimeWindowType),
+            typeof(TimeType),
+            typeof(WorkPreferenceType),
+            typeof(LeaveType),
+            typeof(LeaveRequestStatus),
+            typeof(LeaveDecision),
+            typeof(DayOfWeek),
+            typeof(OpeningDayMode),
+            typeof(ShiftTemplateCategory),
+            typeof(StaffingCapability),
+            typeof(CoverageSeverity),
+            typeof(ShiftQuotaDimension),
+            typeof(QuotaPeriod),
+            typeof(QuotaSeverity)
+        };
+        foreach (var enumType in publicEnumTypes)
+        {
+            AssertStringEnumSchema(
+                schemas.GetProperty(enumType.Name),
+                Enum.GetNames(enumType));
+        }
         Assert.IsTrue(
             paths.GetProperty("/api/me/leave-requests")
                 .GetProperty("post")
@@ -186,6 +220,26 @@ public sealed class OperationalEndpointTests
         Assert.Contains("ManageWorkPreferences", body, StringComparison.Ordinal);
         Assert.Contains("RecordLeaveForOthers", body, StringComparison.Ordinal);
         Assert.DoesNotContain("diagnos", body, StringComparison.OrdinalIgnoreCase);
+
+        var canonicalPath = Path.Combine(
+            AppContext.BaseDirectory,
+            "contracts",
+            "openapi.phase2b.json");
+        Assert.IsTrue(File.Exists(canonicalPath), "Hiányzik a kanonikus runtime OpenAPI export.");
+        var runtimeOpenApi = JsonNode.Parse(body);
+        var canonicalOpenApi = JsonNode.Parse(await File.ReadAllTextAsync(canonicalPath));
+        Assert.IsNotNull(runtimeOpenApi);
+        Assert.IsNotNull(canonicalOpenApi);
+        Assert.AreEqual(
+            "https://localhost:7180/",
+            canonicalOpenApi["servers"]?[0]?["url"]?.GetValue<string>());
+
+        // The request host drives servers, so the test host and local Kestrel port differ.
+        runtimeOpenApi.AsObject().Remove("servers");
+        canonicalOpenApi.AsObject().Remove("servers");
+        Assert.IsTrue(
+            JsonNode.DeepEquals(runtimeOpenApi, canonicalOpenApi),
+            "A commitolt OpenAPI export a kérésfüggő servers mezőn túl eltér a runtime választól.");
     }
 
     [TestMethod]

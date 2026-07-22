@@ -488,6 +488,140 @@ public sealed class SecurityBoundaryTests
     }
 
     [TestMethod]
+    public async Task EmployeeWithoutAccountCanBeManagedThenLinkedToExactlyOneSameTenantUser()
+    {
+        using var loginResponse = await LoginAsync(
+            "admin@test.invalid",
+            IntegrationTestData.Password);
+        Assert.AreEqual(HttpStatusCode.OK, loginResponse.StatusCode);
+
+        using var createEmployeeResponse = await SendWithCsrfAsync(
+            HttpMethod.Post,
+            "/api/admin/employees",
+            new CreateEmployeeRequest(
+                "Kapcsolatlan Teszt Dolgozó",
+                "Kapcsolatlan Dolgozó",
+                ProfessionalRole.Assistant,
+                true,
+                true,
+                false,
+                false,
+                10_080,
+                720,
+                null,
+                null,
+                [],
+                [],
+                [TimeType.Work]));
+        var createdEmployee = await IntegrationJson.ReadSuccessAsync<EmployeeResponse>(
+            createEmployeeResponse);
+        Assert.AreEqual(HttpStatusCode.Created, createEmployeeResponse.StatusCode);
+        Assert.IsNull(createdEmployee.LinkedUser);
+
+        var employeeList = await client.GetFromJsonAsync<PagedResponse<EmployeeResponse>>(
+            "/api/admin/employees?search=Kapcsolatlan",
+            JsonOptions);
+        Assert.IsNotNull(employeeList);
+        var listedEmployee = employeeList.Items.Single(
+            employee => employee.Id == createdEmployee.Id);
+        Assert.IsNull(listedEmployee.LinkedUser);
+
+        using var updateEmployeeResponse = await SendWithCsrfAsync(
+            HttpMethod.Put,
+            $"/api/admin/employees/{createdEmployee.Id}",
+            new UpdateEmployeeRequest(
+                createdEmployee.FullName,
+                "Fiók előtt módosítva",
+                createdEmployee.ProfessionalRole,
+                createdEmployee.IsActive,
+                createdEmployee.IsSchedulable,
+                createdEmployee.IncludeInAutoFill,
+                createdEmployee.CountsAsPharmacist,
+                createdEmployee.MonthlyMinutesLimit,
+                createdEmployee.MaxDailyMinutes,
+                createdEmployee.BirthDate,
+                createdEmployee.ExternalPayrollId,
+                [],
+                [],
+                createdEmployee.AllowedTimeTypes,
+                createdEmployee.Version));
+        var updatedEmployee = await IntegrationJson.ReadSuccessAsync<EmployeeResponse>(
+            updateEmployeeResponse);
+        Assert.AreEqual("Fiók előtt módosítva", updatedEmployee.DisplayName);
+        Assert.IsNull(updatedEmployee.LinkedUser);
+
+        using var createUserResponse = await SendWithCsrfAsync(
+            HttpMethod.Post,
+            "/api/admin/users",
+            new CreateUserRequest(
+                "kesobb-kapcsolt@test.invalid",
+                "Később kapcsolt felhasználó",
+                IntegrationTestData.Password,
+                createdEmployee.Id,
+                [ApplicationPermission.ViewOwnSchedule],
+                true));
+        var createdUser = await IntegrationJson.ReadSuccessAsync<UserResponse>(
+            createUserResponse);
+        Assert.AreEqual(HttpStatusCode.Created, createUserResponse.StatusCode);
+        Assert.AreEqual(createdEmployee.Id, createdUser.LinkedEmployee?.Id);
+
+        var linkedEmployee = await client.GetFromJsonAsync<EmployeeResponse>(
+            $"/api/admin/employees/{createdEmployee.Id}",
+            JsonOptions);
+        Assert.IsNotNull(linkedEmployee);
+        Assert.AreEqual(createdUser.Id, linkedEmployee.LinkedUser?.UserId);
+
+        using var duplicateLinkResponse = await SendWithCsrfAsync(
+            HttpMethod.Post,
+            "/api/admin/users",
+            new CreateUserRequest(
+                "masodik-kapcsolat@test.invalid",
+                "Második kapcsolati kísérlet",
+                IntegrationTestData.Password,
+                createdEmployee.Id,
+                [],
+                true));
+        Assert.AreEqual(
+            HttpStatusCode.UnprocessableEntity,
+            duplicateLinkResponse.StatusCode);
+        Assert.Contains(
+            "EMPLOYEE_ALREADY_LINKED",
+            await duplicateLinkResponse.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal);
+
+        using var crossTenantResponse = await SendWithCsrfAsync(
+            HttpMethod.Post,
+            "/api/admin/users",
+            new CreateUserRequest(
+                "idegen-tenant@test.invalid",
+                "Idegen tenant kapcsolati kísérlet",
+                IntegrationTestData.Password,
+                IntegrationTestData.OtherEmployeeId,
+                [],
+                true));
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, crossTenantResponse.StatusCode);
+        Assert.Contains(
+            "EMPLOYEE_OUTSIDE_ORGANIZATION",
+            await crossTenantResponse.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal);
+
+        await using var scope = application.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<PatikaDbContext>();
+        var auditActions = await dbContext.AuditLogs
+            .Where(log =>
+                log.EntityId == createdEmployee.Id.ToString() ||
+                log.EntityId == createdUser.Id.ToString())
+            .Select(log => log.Action)
+            .ToListAsync();
+        Assert.Contains("Employee.Created", auditActions);
+        Assert.Contains("Employee.Updated", auditActions);
+        Assert.Contains("User.Created", auditActions);
+        Assert.AreEqual(
+            1,
+            await dbContext.Users.CountAsync(user => user.EmployeeId == createdEmployee.Id));
+    }
+
+    [TestMethod]
     public async Task LocationCrudDeactivationConcurrencyAndAuditWork()
     {
         using var loginResponse = await LoginAsync(

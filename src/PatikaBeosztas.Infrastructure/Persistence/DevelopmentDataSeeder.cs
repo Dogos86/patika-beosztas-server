@@ -127,60 +127,76 @@ public static class DevelopmentDataSeeder
         }
 
         if (!await dbContext.Locations.AnyAsync(
-                location => location.OrganizationId == OrganizationId,
+                location => location.Id == CentralLocationId,
                 cancellationToken))
         {
-            dbContext.Locations.AddRange(
-                new Location
-                {
-                    Id = CentralLocationId,
-                    OrganizationId = OrganizationId,
-                    Name = "Központi gyógyszertár",
-                    Type = LocationType.Central,
-                    Address = "Anonimizált fejlesztői cím",
-                    IsActive = true,
-                    CreatedAtUtc = now,
-                    UpdatedAtUtc = now
-                },
-                new Location
-                {
-                    Id = BranchLocationId,
-                    OrganizationId = OrganizationId,
-                    Name = "Régi fióktelep",
-                    Type = LocationType.Branch,
-                    Address = null,
-                    IsActive = false,
-                    CreatedAtUtc = now,
-                    UpdatedAtUtc = now
-                });
+            dbContext.Locations.Add(new Location
+            {
+                Id = CentralLocationId,
+                OrganizationId = OrganizationId,
+                Name = "Központi gyógyszertár",
+                Type = LocationType.Central,
+                Address = "Anonimizált fejlesztői cím",
+                IsActive = true,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
+            });
+        }
+
+        if (!await dbContext.Locations.AnyAsync(
+                location => location.Id == BranchLocationId,
+                cancellationToken))
+        {
+            dbContext.Locations.Add(new Location
+            {
+                Id = BranchLocationId,
+                OrganizationId = OrganizationId,
+                Name = "Régi fióktelep",
+                Type = LocationType.Branch,
+                Address = null,
+                IsActive = false,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
+            });
         }
 
         if (!await dbContext.Employees.AnyAsync(
-                employee => employee.OrganizationId == OrganizationId,
+                employee => employee.Id == AdminEmployeeId,
                 cancellationToken))
         {
-            dbContext.Employees.AddRange(
-                CreateEmployee(
-                    AdminEmployeeId,
-                    "Demo Admin",
-                    ProfessionalRole.PharmacyManager,
-                    isSchedulable: true,
-                    countsAsPharmacist: true,
-                    now),
-                CreateEmployee(
-                    RegularEmployeeId,
-                    "Demo Dolgozó",
-                    ProfessionalRole.Assistant,
-                    isSchedulable: true,
-                    countsAsPharmacist: false,
-                    now),
-                CreateEmployee(
-                    OfflineEmployeeId,
-                    "Fiók nélküli Dolgozó",
-                    ProfessionalRole.Pharmacist,
-                    isSchedulable: true,
-                    countsAsPharmacist: true,
-                    now));
+            dbContext.Employees.Add(CreateEmployee(
+                AdminEmployeeId,
+                "Demo Admin",
+                ProfessionalRole.PharmacyManager,
+                isSchedulable: true,
+                countsAsPharmacist: true,
+                now));
+        }
+
+        if (!await dbContext.Employees.AnyAsync(
+                employee => employee.Id == RegularEmployeeId,
+                cancellationToken))
+        {
+            dbContext.Employees.Add(CreateEmployee(
+                RegularEmployeeId,
+                "Demo Dolgozó",
+                ProfessionalRole.Assistant,
+                isSchedulable: true,
+                countsAsPharmacist: false,
+                now));
+        }
+
+        if (!await dbContext.Employees.AnyAsync(
+                employee => employee.Id == OfflineEmployeeId,
+                cancellationToken))
+        {
+            dbContext.Employees.Add(CreateEmployee(
+                OfflineEmployeeId,
+                "Fiók nélküli Dolgozó",
+                ProfessionalRole.Pharmacist,
+                isSchedulable: true,
+                countsAsPharmacist: true,
+                now));
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

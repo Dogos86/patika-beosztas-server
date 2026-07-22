@@ -16,4 +16,10 @@
     <ProjectReference Include="../../src/PatikaBeosztas.Api/PatikaBeosztas.Api.csproj" />
     <ProjectReference Include="../../src/PatikaBeosztas.Infrastructure/PatikaBeosztas.Infrastructure.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../contracts/openapi.phase2b.json"
+          Link="contracts/openapi.phase2b.json"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

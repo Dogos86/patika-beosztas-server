@@ -17,31 +17,37 @@ A felső, hibás `legacy/current_winforms/PharmacyScheduler.sln` és a megőrzen
 `legacy/current_winforms/PharmacySchedulerWinForms.zip` archívum nem része az
 új solution buildjének.
 
-## Helyi PostgreSQL
+## Helyi API indítása PowerShellből
 
-1. Másold a `.env.example` fájlt `.env` néven.
-2. Minden `CHANGE_ME` értéket cserélj saját, kizárólag helyi jelszóra.
-3. Indítsd el az adatbázist:
+A repository gyökerében:
+
+```powershell
+Copy-Item .env.example .env
+# Szerkeszd a .env fájlt, és cseréld le az összes CHANGE_ME értéket.
+.\eng\start-local-api.ps1
+```
+
+A script betölti a `.env` fájlt anélkül, hogy kiírná a titkos értékeket,
+ellenőrzi a .NET 10 SDK-t és a Docker motort, majd pontosan ezt a PostgreSQL
+szolgáltatást indítja vagy használja újra:
 
 ```powershell
 docker compose --env-file .env up -d postgres
 ```
 
-Az adatbázis csak a helyi `127.0.0.1:5432` címen publikálódik. A `.env`
-gitignore-olt; production secretet ne adj a repositoryhoz.
-
-## API indítása és Development seed
-
-PowerShell:
+Ezután `Development` környezetben a `https://localhost:7180` címen, launch
+profile nélkül indítja az API-t. Ha a fejlesztői tanúsítvány még nem
+megbízható, a script jelzi az egyszer futtatandó parancsot:
 
 ```powershell
-$env:ASPNETCORE_ENVIRONMENT = "Development"
-$env:ASPNETCORE_URLS = "https://localhost:7180"
-$env:ConnectionStrings__DefaultConnection = "Host=localhost;Port=5432;Database=patika_beosztas;Username=patika_app;Password=<helyi-adatbazis-jelszo>"
-$env:Seed__DemoPassword = "<eros-kizarolag-helyi-demo-jelszo>"
 dotnet dev-certs https --trust
-dotnet run --project src/PatikaBeosztas.Api
 ```
+
+Az adatbázis csak a helyi `127.0.0.1:5432` címen publikálódik. A `.env`
+gitignore-olt; production secretet ne adj a repositoryhoz. A script futása az
+API konzolát foglalja, leállítása `Ctrl+C`.
+
+## Development seed
 
 Development módban az API migrálja az adatbázist, majd idempotensen létrehozza:
 
@@ -51,8 +57,11 @@ Development módban az API migrálja az adatbázist, majd idempotensen létrehoz
 - egy belépési fiók nélküli Employee;
 - egy aktív központi és egy inaktív fióktelep.
 
-Mindkét demo fiók jelszava a `Seed__DemoPassword`. Ezek anonimizált,
-kizárólag Development adatok, production használatra tilosak. Developmenten
+Mindkét demo fiók jelszava a `Seed__DemoPassword`. A fix demo szervezetet,
+telephelyeket, dolgozókat és fiókokat a seeder saját stabil azonosítójuk alapján
+egyenként biztosítja. Emiatt egy részben feltöltött régi fejlesztői adatbázis is
+kiegészül, miközben a felhasználó által létrehozott dolgozók nem törlődnek és
+nem íródnak felül. Ezek anonimizált, kizárólag Development adatok; Developmenten
 kívül sem automatikus migráció, sem seed nem fut.
 
 ## Cookie és CSRF használat
@@ -92,7 +101,63 @@ Felhasználó-integrációnál a lista és a
 employee-link- és státuszmódosító PUT requestek ezt `expectedVersion` néven
 visszakérik; stale verzió esetén `409 CONCURRENCY_CONFLICT` érkezik.
 
-Az OpenAPI futás közben az `/openapi/v1.json` címen érhető el.
+## Frontend-integráció
+
+A támogatott alapértelmezett Development origin pontosan
+`https://localhost:5173`. A `.env` fájlban felülírható, további pontos origineket
+pedig sorszámozott konfigurációs kulccsal lehet hozzáadni:
+
+```dotenv
+Cors__AllowedOrigins__0=https://localhost:5173
+# Cors__AllowedOrigins__1=https://masik-helyi-origin.example
+```
+
+Credentiales CORS mellett wildcard és `AllowAnyOrigin` nincs. A Production
+konfiguráció nem kap automatikus Development origint.
+
+A frontend minden cookie-s kérésnél `credentials: "include"` beállítást használ.
+Mutáció előtt kérjen CSRF-tokent, majd ugyanazzal a cookie-konteksszel küldje a
+headert, például:
+
+```typescript
+const apiBase = "https://localhost:7180";
+const csrf = await fetch(`${apiBase}/api/auth/csrf`, {
+  credentials: "include",
+}).then((response) => response.json());
+
+await fetch(`${apiBase}/api/admin/employees`, {
+  method: "POST",
+  credentials: "include",
+  headers: {
+    "Content-Type": "application/json",
+    [csrf.headerName]: csrf.requestToken,
+  },
+  body: JSON.stringify(employee),
+});
+```
+
+Az exact permissionöket a `GET /api/auth/session` adja; a frontend ne vezessen
+le jogosultságot a dolgozó szakmai szerepéből. Employee és ApplicationUser két
+külön erőforrás: dolgozó fiók nélkül is létrehozható, a fiók pedig később
+`employeeId` értékkel hozható létre vagy az employee-link végponton kapcsolható.
+
+## Runtime OpenAPI és frontend típusgenerálás
+
+A futó dokumentum címe `https://localhost:7180/openapi/v1.json`. A commitolt,
+kanonikus Phase 2B exportot mindig a runtime válaszból frissítsd; a JSON-t ne
+szerkeszd kézzel:
+
+```powershell
+.\eng\export-openapi.ps1
+Get-FileHash .\contracts\openapi.phase2b.json -Algorithm SHA256
+```
+
+Ha a megfelelő API már fut, a script azt használja. Egyébként ellenőrzi a
+szükséges környezeti változókat, elindítja a helyi PostgreSQL-t, Release buildet
+készít, ideiglenesen elindítja az API-t, validálja az API címét, a
+`0.3.0-phase2b` verziót és a megvalósított modulok útvonalait, majd csak az
+általa indított API-folyamatot állítja le. A frontend generált típusainak forrása:
+`contracts/openapi.phase2b.json`.
 
 ## Migráció és minőségi kapuk
 
@@ -109,9 +174,15 @@ dotnet ef migrations add <Nev> `
 Ellenőrzés:
 
 ```powershell
-dotnet restore PatikaBeosztas.slnx
-dotnet build PatikaBeosztas.slnx --no-restore --configuration Release
-dotnet test PatikaBeosztas.slnx --no-build --configuration Release
+dotnet restore .\PatikaBeosztas.slnx
+dotnet build .\PatikaBeosztas.slnx --configuration Release --no-restore
+dotnet test .\PatikaBeosztas.slnx --configuration Release --no-build
+dotnet list .\PatikaBeosztas.slnx package --vulnerable --include-transitive
+dotnet ef migrations has-pending-model-changes `
+  --project .\src\PatikaBeosztas.Infrastructure `
+  --startup-project .\src\PatikaBeosztas.Infrastructure
+dotnet format .\PatikaBeosztas.slnx --verify-no-changes --no-restore --include src tests eng
+git diff --check
 ```
 
 A biztonsági integrációs tesztek valódi `postgres:17-alpine` Testcontainers
@@ -122,6 +193,8 @@ eredménnyel tesz úgy, mintha a PostgreSQL-specifikus működés ellenőrzött 
 Részletes fázisleírás: `docs/PHASE_1_IMPLEMENTATION.md`.
 A Phase 2B nyitvatartási, coverage- és munkaprofil runtime-szelete:
 `docs/PHASE_2B_IMPLEMENTATION.md`.
+A Phase 2C API-átadás, runtime export és helyi integráció:
+`docs/PHASE_2C_API_HANDOFF.md`.
 A Phase 1.5 hardening, frontend-integráció és production checklist:
 `docs/PHASE_1_5_HARDENING.md`.
 A későbbi beosztásmotor frontend–backend közös termékdöntése:

@@ -24,6 +24,26 @@ builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi(options =>
 {
+    var stringEnumSchemaNames = new[]
+    {
+        nameof(ApplicationPermission),
+        nameof(ProfessionalRole),
+        nameof(LocationType),
+        nameof(EmployeeTimeWindowType),
+        nameof(TimeType),
+        nameof(WorkPreferenceType),
+        nameof(LeaveType),
+        nameof(LeaveRequestStatus),
+        nameof(LeaveDecision),
+        nameof(DayOfWeek),
+        nameof(OpeningDayMode),
+        nameof(ShiftTemplateCategory),
+        nameof(StaffingCapability),
+        nameof(CoverageSeverity),
+        nameof(ShiftQuotaDimension),
+        nameof(QuotaPeriod),
+        nameof(QuotaSeverity)
+    };
     options.AddDocumentTransformer((document, _, _) =>
     {
         document.Info.Title = "Patika Beosztás API";
@@ -43,17 +63,23 @@ builder.Services.AddOpenApi(options =>
             Name = "__Host-PatikaSession",
             Description = "HttpOnly, Secure Identity munkamenet-cookie."
         };
-        foreach (var schemaName in new[]
-        {
-            nameof(LeaveType),
-            nameof(LeaveRequestStatus),
-            nameof(LeaveDecision)
-        })
+        foreach (var schemaName in stringEnumSchemaNames)
         {
             if (document.Components.Schemas?.TryGetValue(schemaName, out var schema) == true &&
                 schema is OpenApiSchema enumSchema)
             {
                 enumSchema.Type = JsonSchemaType.String;
+                if (enumSchema.Enum is not null)
+                {
+                    foreach (var nullValue in enumSchema.Enum
+                                 .Where(value =>
+                                     value is null ||
+                                     JsonNullSentinel.IsJsonNullSentinel(value))
+                                 .ToArray())
+                    {
+                        enumSchema.Enum.Remove(nullValue);
+                    }
+                }
             }
         }
 
