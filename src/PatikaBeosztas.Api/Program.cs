@@ -27,9 +27,10 @@ builder.Services.AddOpenApi(options =>
     options.AddDocumentTransformer((document, _, _) =>
     {
         document.Info.Title = "Patika Beosztás API";
-        document.Info.Version = "0.1.5-phase1-hardening";
+        document.Info.Version = "0.2.0-phase2a";
         document.Info.Description =
-            "Szervezethez kötött, cookie-authentikált gyógyszertári adminisztrációs API; " +
+            "Szervezethez kötött, cookie-authentikált gyógyszertári adminisztrációs, " +
+            "munkapreferencia- és távollétkezelő API; " +
             "a frontend HTTPS-en, az API-val azonos site alatt, credentials: include beállítással hívja; " +
             "a mutációkhoz CSRF-token és az optimista konkurenciát használó kéréseknél verzió szükséges.";
         document.Components ??= new OpenApiComponents();
@@ -196,6 +197,8 @@ app.MapAuthEndpoints();
 app.MapEmployeeEndpoints();
 app.MapLocationEndpoints();
 app.MapUserEndpoints();
+app.MapWorkPreferenceEndpoints();
+app.MapLeaveRequestEndpoints();
 
 await app.Services.InitializeDevelopmentDatabaseAsync(
     app.Environment,

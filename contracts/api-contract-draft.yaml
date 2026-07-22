@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: Patika Beosztás API
-  version: 0.1.5-phase1-hardening
+  version: 0.2.0-phase2a
   description: >-
-    Az 1.5 hardening fázis frontend–backend szerződése. A futó backend
+    A Phase 2A frontend–backend szerződése. A futó backend
     /openapi/v1.json dokumentuma a generált frontend típusok végleges forrása.
     A frontend HTTPS-en, az API-val azonos site alatt fusson, és a cookie-s
     kérésekhez credentials: include beállítást használjon.
@@ -14,6 +14,8 @@ tags:
   - name: Employees
   - name: Locations
   - name: Users
+  - name: Work preferences
+  - name: Leave requests
 paths:
   /api/auth/csrf:
     get:
@@ -403,6 +405,541 @@ paths:
           $ref: '#/components/responses/Problem'
         '409':
           $ref: '#/components/responses/Problem'
+  /api/me/work-preferences:
+    get:
+      tags: [Work preferences]
+      summary: Saját munkavégzési kérések és szabályok listázása
+      parameters:
+        - in: query
+          name: includeInactive
+          schema: { type: [boolean, 'null'], default: false }
+      responses:
+        '200':
+          description: Saját munkavégzési kérések és szabályok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkPreferenceResponse'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [Work preferences]
+      summary: Saját munkavégzési kérés vagy szabály létrehozása
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkPreferenceRequest'
+      responses:
+        '201':
+          description: Létrehozott munkavégzési kérés vagy szabály
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkPreferenceResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/me/work-preferences/{id}:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    put:
+      tags: [Work preferences]
+      summary: Saját munkavégzési kérés vagy szabály módosítása
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkPreferenceRequest'
+      responses:
+        '200':
+          description: Módosított munkavégzési kérés vagy szabály
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkPreferenceResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/me/work-preferences/{id}/deactivate:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Work preferences]
+      summary: Saját munkavégzési kérés vagy szabály inaktiválása
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionRequest'
+      responses:
+        '200':
+          description: Inaktivált munkavégzési kérés vagy szabály
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkPreferenceResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/admin/employees/{employeeId}/work-preferences:
+    parameters:
+      - $ref: '#/components/parameters/EmployeeId'
+    get:
+      tags: [Work preferences]
+      summary: Dolgozó munkavégzési kéréseinek és szabályainak listázása
+      x-required-permission: ManageWorkPreferences
+      parameters:
+        - in: query
+          name: includeInactive
+          schema: { type: [boolean, 'null'], default: false }
+      responses:
+        '200':
+          description: Dolgozó munkavégzési kérései és szabályai
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkPreferenceResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [Work preferences]
+      summary: Munkavégzési kérés vagy szabály rögzítése dolgozó számára
+      x-required-permission: ManageWorkPreferences
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkPreferenceRequest'
+      responses:
+        '201':
+          description: Létrehozott munkavégzési kérés vagy szabály
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkPreferenceResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/admin/work-preferences/{id}:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    put:
+      tags: [Work preferences]
+      summary: Dolgozó munkavégzési kérésének vagy szabályának módosítása
+      x-required-permission: ManageWorkPreferences
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkPreferenceRequest'
+      responses:
+        '200':
+          description: Módosított munkavégzési kérés vagy szabály
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkPreferenceResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/admin/work-preferences/{id}/deactivate:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Work preferences]
+      summary: Dolgozó munkavégzési kérésének vagy szabályának inaktiválása
+      x-required-permission: ManageWorkPreferences
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionRequest'
+      responses:
+        '200':
+          description: Inaktivált munkavégzési kérés vagy szabály
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkPreferenceResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+  /api/me/leave-requests:
+    get:
+      tags: [Leave requests]
+      summary: Saját távolléti kérelmek és betegállományok listázása
+      x-required-permission: ManageOwnLeaveRequests
+      responses:
+        '200':
+          description: Saját távollétek
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LeaveRequestResponse'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [Leave requests]
+      summary: Saját távolléti kérelem vagy betegállomány létrehozása
+      x-required-permission: ManageOwnLeaveRequests
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLeaveRequest'
+      responses:
+        '201':
+          description: Létrehozott távollét
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveRequestResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/me/leave-requests/{id}:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    put:
+      tags: [Leave requests]
+      summary: Saját szerkeszthető távollét módosítása
+      x-required-permission: ManageOwnLeaveRequests
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLeaveRequest'
+      responses:
+        '200':
+          description: Módosított távollét
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveRequestResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/me/leave-requests/{id}/submit:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Leave requests]
+      summary: Saját távolléti kérelem beküldése
+      x-required-permission: ManageOwnLeaveRequests
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionRequest'
+      responses:
+        '200':
+          description: Beküldött távolléti kérelem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveRequestResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/me/leave-requests/{id}/withdraw:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Leave requests]
+      summary: Saját távolléti kérelem visszavonása
+      x-required-permission: ManageOwnLeaveRequests
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionRequest'
+      responses:
+        '200':
+          description: Visszavont távolléti kérelem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveRequestResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/admin/leave-requests:
+    get:
+      tags: [Leave requests]
+      summary: Szervezeti távolléti kérelmek listázása
+      x-required-permission: ManageAllLeaveRequests
+      parameters:
+        - in: query
+          name: employeeId
+          schema: { type: [string, 'null'], format: uuid }
+        - in: query
+          name: status
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/LeaveRequestStatus'
+              - type: 'null'
+        - in: query
+          name: type
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/LeaveType'
+              - type: 'null'
+      responses:
+        '200':
+          description: Szervezeti távollétek
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LeaveRequestResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /api/admin/leave-requests/{id}:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    get:
+      tags: [Leave requests]
+      summary: Távolléti kérelem részletes lekérése
+      x-required-permission: ManageAllLeaveRequests
+      responses:
+        '200':
+          description: Távolléti kérelem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveRequestResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /api/admin/employees/{employeeId}/leave-requests:
+    parameters:
+      - $ref: '#/components/parameters/EmployeeId'
+    post:
+      tags: [Leave requests]
+      summary: Távollét rögzítése dolgozó nevében
+      x-required-permission: RecordLeaveForOthers
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLeaveRequest'
+      responses:
+        '201':
+          description: Létrehozott távollét
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveRequestResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/admin/leave-requests/{id}/submit:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Leave requests]
+      summary: Admin által rögzített normál kérelem beküldése
+      x-required-permission: RecordLeaveForOthers
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionRequest'
+      responses:
+        '200':
+          description: Beküldött távolléti kérelem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveRequestResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/admin/leave-requests/{id}/record:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Leave requests]
+      summary: Bejelentett betegállomány adminisztratív rögzítése
+      x-required-permission: RecordLeaveForOthers
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionRequest'
+      responses:
+        '200':
+          description: Rögzített betegállomány
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveRequestResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/admin/leave-requests/{id}/close:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Leave requests]
+      summary: Rögzített betegállomány lezárása
+      x-required-permission: RecordLeaveForOthers
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseSickLeaveRequest'
+      responses:
+        '200':
+          description: Lezárt betegállomány
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveRequestResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/admin/leave-requests/{id}/decision:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Leave requests]
+      summary: Függő távolléti kérelem jóváhagyása vagy elutasítása
+      x-required-permission: ApproveLeaveRequests
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeaveDecisionRequest'
+      responses:
+        '200':
+          description: Eldöntött távolléti kérelem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveRequestResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /api/admin/leave-requests/{id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Leave requests]
+      summary: Jóváhagyott távollét megszüntetése
+      x-required-permission: ApproveLeaveRequests
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelLeaveRequest'
+      responses:
+        '200':
+          description: Megszüntetett távollét
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveRequestResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
 components:
   securitySchemes:
     cookieAuth:
@@ -419,6 +956,13 @@ components:
     EntityId:
       in: path
       name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    EmployeeId:
+      in: path
+      name: employeeId
       required: true
       schema:
         type: string
@@ -462,8 +1006,10 @@ components:
       enum:
         - ViewOwnSchedule
         - ManageOwnLeaveRequests
+        - ManageWorkPreferences
         - ManageAllLeaveRequests
         - ApproveLeaveRequests
+        - RecordLeaveForOthers
         - ManageEmployees
         - ManageLocations
         - ManageCoverageRules
@@ -783,6 +1329,181 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ApplicationPermission'
+        version: { type: integer, minimum: 1 }
+        createdAtUtc: { type: string, format: date-time }
+        updatedAtUtc: { type: string, format: date-time }
+    WorkPreferenceType:
+      type: string
+      enum: [Available, Preferred, Avoid, Unavailable, Fixed]
+    LeaveType:
+      type: string
+      enum: [AnnualLeave, SickLeave, UnpaidLeave, ParentalLeave, Other]
+    LeaveRequestStatus:
+      type: string
+      enum: [Draft, Pending, Approved, Rejected, Withdrawn, Cancelled, Reported, Recorded, Closed]
+    LeaveDecision:
+      type: string
+      enum: [Approve, Reject]
+    VersionRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+    CreateWorkPreferenceRequest:
+      type: object
+      additionalProperties: false
+      required: [type, dateFrom, dateTo, isFullDay]
+      properties:
+        type:
+          $ref: '#/components/schemas/WorkPreferenceType'
+        dateFrom: { type: string, format: date }
+        dateTo: { type: string, format: date }
+        dayOfWeek:
+          type: [string, 'null']
+          enum: [Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, null]
+        isFullDay: { type: boolean }
+        startTime: { type: [string, 'null'], format: time }
+        endTime: { type: [string, 'null'], format: time }
+        locationId: { type: [string, 'null'], format: uuid }
+        note: { type: [string, 'null'], maxLength: 1000 }
+    UpdateWorkPreferenceRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateWorkPreferenceRequest'
+        - type: object
+          additionalProperties: false
+          required: [expectedVersion]
+          properties:
+            expectedVersion: { type: integer, minimum: 1 }
+    WorkPreferenceResponse:
+      type: object
+      required:
+        - id
+        - employeeId
+        - employeeDisplayName
+        - type
+        - dateFrom
+        - dateTo
+        - isFullDay
+        - isActive
+        - version
+        - createdAtUtc
+        - updatedAtUtc
+      properties:
+        id: { type: string, format: uuid }
+        employeeId: { type: string, format: uuid }
+        employeeDisplayName: { type: string }
+        type:
+          $ref: '#/components/schemas/WorkPreferenceType'
+        dateFrom: { type: string, format: date }
+        dateTo: { type: string, format: date }
+        dayOfWeek:
+          type: [string, 'null']
+          enum: [Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, null]
+        isFullDay: { type: boolean }
+        startTime: { type: [string, 'null'], format: time }
+        endTime: { type: [string, 'null'], format: time }
+        locationId: { type: [string, 'null'], format: uuid }
+        locationName: { type: [string, 'null'] }
+        note: { type: [string, 'null'] }
+        isActive: { type: boolean }
+        version: { type: integer, minimum: 1 }
+        createdAtUtc: { type: string, format: date-time }
+        updatedAtUtc: { type: string, format: date-time }
+    CreateLeaveRequest:
+      type: object
+      additionalProperties: false
+      required: [type, dateFrom, isFullDay]
+      description: Betegállománynál az employeeNote nem adható meg; diagnózis nem része a nyilvános szerződésnek.
+      properties:
+        type:
+          $ref: '#/components/schemas/LeaveType'
+        dateFrom: { type: string, format: date }
+        dateTo: { type: [string, 'null'], format: date }
+        isFullDay: { type: boolean }
+        startTime: { type: [string, 'null'], format: time }
+        endTime: { type: [string, 'null'], format: time }
+        employeeNote: { type: [string, 'null'], maxLength: 1000 }
+    UpdateLeaveRequest:
+      type: object
+      additionalProperties: false
+      required: [dateFrom, isFullDay, expectedVersion]
+      properties:
+        dateFrom: { type: string, format: date }
+        dateTo: { type: [string, 'null'], format: date }
+        isFullDay: { type: boolean }
+        startTime: { type: [string, 'null'], format: time }
+        endTime: { type: [string, 'null'], format: time }
+        employeeNote: { type: [string, 'null'], maxLength: 1000 }
+        expectedVersion: { type: integer, minimum: 1 }
+    LeaveDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [decision, expectedVersion]
+      properties:
+        decision:
+          $ref: '#/components/schemas/LeaveDecision'
+        reason: { type: [string, 'null'], maxLength: 1000 }
+        expectedVersion: { type: integer, minimum: 1 }
+    CloseSickLeaveRequest:
+      type: object
+      additionalProperties: false
+      required: [dateTo, expectedVersion]
+      properties:
+        dateTo: { type: string, format: date }
+        expectedVersion: { type: integer, minimum: 1 }
+    CancelLeaveRequest:
+      type: object
+      additionalProperties: false
+      required: [reason, expectedVersion]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 1000 }
+        expectedVersion: { type: integer, minimum: 1 }
+    LeaveStatusHistoryResponse:
+      type: object
+      required: [toStatus, occurredAtUtc]
+      properties:
+        fromStatus:
+          oneOf:
+            - $ref: '#/components/schemas/LeaveRequestStatus'
+            - type: 'null'
+        toStatus:
+          $ref: '#/components/schemas/LeaveRequestStatus'
+        occurredAtUtc: { type: string, format: date-time }
+        reason: { type: [string, 'null'] }
+    LeaveRequestResponse:
+      type: object
+      required:
+        - id
+        - employeeId
+        - employeeDisplayName
+        - type
+        - dateFrom
+        - isFullDay
+        - status
+        - statusHistory
+        - version
+        - createdAtUtc
+        - updatedAtUtc
+      properties:
+        id: { type: string, format: uuid }
+        employeeId: { type: string, format: uuid }
+        employeeDisplayName: { type: string }
+        type:
+          $ref: '#/components/schemas/LeaveType'
+        dateFrom: { type: string, format: date }
+        dateTo: { type: [string, 'null'], format: date }
+        isFullDay: { type: boolean }
+        startTime: { type: [string, 'null'], format: time }
+        endTime: { type: [string, 'null'], format: time }
+        status:
+          $ref: '#/components/schemas/LeaveRequestStatus'
+        employeeNote: { type: [string, 'null'] }
+        decisionReason: { type: [string, 'null'] }
+        statusHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeaveStatusHistoryResponse'
         version: { type: integer, minimum: 1 }
         createdAtUtc: { type: string, format: date-time }
         updatedAtUtc: { type: string, format: date-time }

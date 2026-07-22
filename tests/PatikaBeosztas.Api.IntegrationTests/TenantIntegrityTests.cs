@@ -66,6 +66,119 @@ public sealed class TenantIntegrityTests
             item => item.Id == IntegrationTestData.InactiveUserId);
         user.EmployeeId = IntegrationTestData.OtherEmployeeId;
         await AssertSaveRejectedAsync(dbContext);
+
+        dbContext.WorkPreferences.Add(new WorkPreference
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = IntegrationTestData.OrganizationId,
+            EmployeeId = IntegrationTestData.OtherEmployeeId,
+            Type = WorkPreferenceType.Available,
+            DateFrom = new DateOnly(2026, 8, 1),
+            DateTo = new DateOnly(2026, 8, 1),
+            IsFullDay = true,
+            IsActive = true,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        });
+        await AssertSaveRejectedAsync(dbContext);
+
+        dbContext.WorkPreferences.Add(new WorkPreference
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = IntegrationTestData.OrganizationId,
+            EmployeeId = IntegrationTestData.AdminEmployeeId,
+            LocationId = IntegrationTestData.OtherLocationId,
+            Type = WorkPreferenceType.Available,
+            DateFrom = new DateOnly(2026, 8, 1),
+            DateTo = new DateOnly(2026, 8, 1),
+            IsFullDay = true,
+            IsActive = true,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        });
+        await AssertSaveRejectedAsync(dbContext);
+
+        dbContext.LeaveRequests.Add(new LeaveRequest
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = IntegrationTestData.OrganizationId,
+            EmployeeId = IntegrationTestData.OtherEmployeeId,
+            CreatedByUserId = IntegrationTestData.AdminUserId,
+            Type = LeaveType.AnnualLeave,
+            DateFrom = new DateOnly(2026, 8, 1),
+            DateTo = new DateOnly(2026, 8, 1),
+            IsFullDay = true,
+            Status = LeaveRequestStatus.Draft,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        });
+        await AssertSaveRejectedAsync(dbContext);
+
+        dbContext.LeaveRequests.Add(new LeaveRequest
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = IntegrationTestData.OrganizationId,
+            EmployeeId = IntegrationTestData.AdminEmployeeId,
+            CreatedByUserId = IntegrationTestData.InactiveOrganizationUserId,
+            Type = LeaveType.AnnualLeave,
+            DateFrom = new DateOnly(2026, 8, 1),
+            DateTo = new DateOnly(2026, 8, 1),
+            IsFullDay = true,
+            Status = LeaveRequestStatus.Draft,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        });
+        await AssertSaveRejectedAsync(dbContext);
+
+        dbContext.LeaveRequests.Add(new LeaveRequest
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = IntegrationTestData.OrganizationId,
+            EmployeeId = IntegrationTestData.AdminEmployeeId,
+            CreatedByUserId = IntegrationTestData.AdminUserId,
+            Type = LeaveType.AnnualLeave,
+            DateFrom = new DateOnly(2026, 8, 1),
+            DateTo = new DateOnly(2026, 8, 1),
+            IsFullDay = true,
+            Status = LeaveRequestStatus.Approved,
+            DecidedByUserId = IntegrationTestData.InactiveOrganizationUserId,
+            DecidedAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        });
+        await AssertSaveRejectedAsync(dbContext);
+
+        var validLeave = new LeaveRequest
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = IntegrationTestData.OrganizationId,
+            EmployeeId = IntegrationTestData.AdminEmployeeId,
+            CreatedByUserId = IntegrationTestData.AdminUserId,
+            Type = LeaveType.AnnualLeave,
+            DateFrom = new DateOnly(2026, 8, 1),
+            DateTo = new DateOnly(2026, 8, 1),
+            IsFullDay = true,
+            Status = LeaveRequestStatus.Approved,
+            DecidedByUserId = IntegrationTestData.AdminUserId,
+            DecidedAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        };
+        dbContext.LeaveRequests.Add(validLeave);
+        await dbContext.SaveChangesAsync();
+        dbContext.ChangeTracker.Clear();
+
+        dbContext.LeaveStatusHistories.Add(new LeaveStatusHistory
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = IntegrationTestData.OrganizationId,
+            LeaveRequestId = validLeave.Id,
+            FromStatus = LeaveRequestStatus.Pending,
+            ToStatus = LeaveRequestStatus.Approved,
+            ActorUserId = IntegrationTestData.InactiveOrganizationUserId,
+            OccurredAtUtc = DateTimeOffset.UtcNow
+        });
+        await AssertSaveRejectedAsync(dbContext);
     }
 
     private static async Task AssertSaveRejectedAsync(PatikaDbContext dbContext)

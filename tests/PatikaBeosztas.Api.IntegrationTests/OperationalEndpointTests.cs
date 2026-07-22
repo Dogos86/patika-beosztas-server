@@ -26,7 +26,7 @@ public sealed class OperationalEndpointTests
     }
 
     [TestMethod]
-    public async Task OpenApiDocumentsPhaseOneEndpointsAndCookieSecurity()
+    public async Task OpenApiDocumentsPhase2AEndpointsContractsAndCookieSecurity()
     {
         await using var application = new ApiFactory(UnusedConnectionString);
         using var client = application.CreateHttpsClient();
@@ -45,6 +45,31 @@ public sealed class OperationalEndpointTests
         Assert.IsTrue(paths.TryGetProperty("/api/admin/locations", out _));
         Assert.IsTrue(paths.TryGetProperty("/api/admin/users", out _));
         Assert.IsTrue(paths.TryGetProperty("/api/admin/users/{id}", out _));
+        var phase2APaths = new[]
+        {
+            "/api/me/work-preferences",
+            "/api/me/work-preferences/{id}",
+            "/api/me/work-preferences/{id}/deactivate",
+            "/api/admin/employees/{employeeId}/work-preferences",
+            "/api/admin/work-preferences/{id}",
+            "/api/admin/work-preferences/{id}/deactivate",
+            "/api/me/leave-requests",
+            "/api/me/leave-requests/{id}",
+            "/api/me/leave-requests/{id}/submit",
+            "/api/me/leave-requests/{id}/withdraw",
+            "/api/admin/leave-requests",
+            "/api/admin/leave-requests/{id}",
+            "/api/admin/employees/{employeeId}/leave-requests",
+            "/api/admin/leave-requests/{id}/submit",
+            "/api/admin/leave-requests/{id}/record",
+            "/api/admin/leave-requests/{id}/close",
+            "/api/admin/leave-requests/{id}/decision",
+            "/api/admin/leave-requests/{id}/cancel"
+        };
+        foreach (var path in phase2APaths)
+        {
+            Assert.IsTrue(paths.TryGetProperty(path, out _), $"Hiányzó OpenAPI útvonal: {path}");
+        }
         Assert.AreEqual(
             "__Host-PatikaSession",
             schemes.GetProperty("cookieAuth").GetProperty("name").GetString());
@@ -75,6 +100,40 @@ public sealed class OperationalEndpointTests
             schemas.GetProperty("UpdateUserPermissionsRequest")
                 .GetProperty("properties")
                 .TryGetProperty("expectedVersion", out _));
+        Assert.IsTrue(
+            schemas.GetProperty("WorkPreferenceResponse")
+                .GetProperty("properties")
+                .TryGetProperty("version", out _));
+        Assert.IsTrue(
+            schemas.GetProperty("LeaveRequestResponse")
+                .GetProperty("properties")
+                .TryGetProperty("statusHistory", out _));
+        Assert.IsFalse(
+            schemas.GetProperty("CreateWorkPreferenceRequest")
+                .GetProperty("properties")
+                .TryGetProperty("employeeId", out _));
+        Assert.IsFalse(
+            schemas.GetProperty("CreateLeaveRequest")
+                .GetProperty("properties")
+                .TryGetProperty("employeeId", out _));
+        Assert.IsFalse(
+            schemas.GetProperty("CreateLeaveRequest")
+                .GetProperty("properties")
+                .TryGetProperty("diagnosis", out _));
+        Assert.IsFalse(
+            schemas.GetProperty("LeaveRequestResponse")
+                .GetProperty("properties")
+                .TryGetProperty("diagnosis", out _));
+        Assert.IsTrue(
+            paths.GetProperty("/api/me/leave-requests")
+                .GetProperty("post")
+                .GetProperty("parameters")
+                .EnumerateArray()
+                .Any(parameter =>
+                    parameter.GetProperty("name").GetString() == "X-CSRF-TOKEN"));
+        Assert.Contains("ManageWorkPreferences", body, StringComparison.Ordinal);
+        Assert.Contains("RecordLeaveForOthers", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("diagnos", body, StringComparison.OrdinalIgnoreCase);
     }
 
     [TestMethod]

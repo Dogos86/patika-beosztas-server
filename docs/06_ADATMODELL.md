@@ -50,14 +50,19 @@ Minden üzleti entitás tartalmazzon `OrganizationId`-t, ahol releváns audit me
 - LocationId
 - Active
 
-## EmployeeTimePreference
+## WorkPreference
+- Id
 - OrganizationId
 - EmployeeId
-- DayOfWeek vagy konkrét dátumtartomány
-- StartLocalTime
-- EndLocalTime
-- PreferenceType: Preferred/Forbidden
-- Version
+- Type: Available/Preferred/Avoid/Unavailable/Fixed
+- DateFrom/DateTo
+- DayOfWeek opcionális
+- IsFullDay vagy StartTime/EndTime
+- LocationId opcionális
+- Note opcionális
+- IsActive
+- CreatedAtUtc/UpdatedAtUtc
+- Version (`xmin`)
 
 ## Schedule
 - Id
@@ -164,15 +169,18 @@ generátor nem feltételezheti, hogy egy korábbi elutasítás örökre tiltást
 - OrganizationId
 - EmployeeId
 - CreatedByUserId
-- LeaveType
-- StartsAtUtc
-- EndsAtUtc nullable for open sick leave if required
-- FullDay
+- Type: AnnualLeave/SickLeave/UnpaidLeave/ParentalLeave/Other
+- DateFrom/DateTo; a `DateTo` kizárólag betegállománynál lehet nyitott
+- IsFullDay vagy StartTime/EndTime
 - Status
 - EmployeeNote
 - DecisionReason
 - DecidedBy/DecidedAt
 - Version
+
+A normál állapotgép `Draft` → `Pending` → `Approved`/`Rejected`,
+`Draft`/`Pending` → `Withdrawn`, illetve `Approved` → `Cancelled`. A
+betegállomány állapotgépe `Reported` → `Recorded` → `Closed`.
 
 ## LeaveStatusHistory
 - LeaveRequestId
@@ -212,5 +220,6 @@ Az organization-scoped kapcsolatok kompozit idegen kulcsot használnak, így a
 kapcsoló rekord `OrganizationId` értékének egyeznie kell mindkét hivatkozott
 rekord szervezetével. Ez különösen kötelező az ApplicationUser–Employee,
 EmployeeLocation–Employee/Location, EmployeeTimeWindow–Employee,
-EmployeeAllowedTimeType–Employee és UserPermission–ApplicationUser
-kapcsolatoknál.
+EmployeeAllowedTimeType–Employee, UserPermission–ApplicationUser,
+WorkPreference–Employee/Location, LeaveRequest–Employee/User és
+LeaveStatusHistory–LeaveRequest/User kapcsolatoknál.

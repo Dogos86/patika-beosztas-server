@@ -69,4 +69,45 @@ public sealed class InputValidationTests
 
         Assert.HasCount(1, warnings);
     }
+
+    [TestMethod]
+    public void WorkPreferenceErrorsAreMappedToPublicFields()
+    {
+        var errors = InputValidation.ValidateWorkPreference(
+            new DateOnly(2026, 8, 2),
+            new DateOnly(2026, 8, 1),
+            isFullDay: false,
+            startTime: null,
+            endTime: null,
+            note: null);
+
+        Assert.IsTrue(errors.Any(error =>
+            error.Code == "WORK_PREFERENCE_DATE_ORDER" && error.Field == "dateTo"));
+        Assert.IsTrue(errors.Any(error =>
+            error.Code == "PARTIAL_WORK_PREFERENCE_REQUIRES_TIME" &&
+            error.Field == "startTime"));
+    }
+
+    [TestMethod]
+    public void LeaveErrorsAndTransitionsAreMappedToPublicFields()
+    {
+        var periodErrors = InputValidation.ValidateLeaveRequest(
+            LeaveType.AnnualLeave,
+            new DateOnly(2026, 8, 10),
+            dateTo: null,
+            isFullDay: true,
+            startTime: null,
+            endTime: null,
+            employeeNote: null);
+        var transitionErrors = InputValidation.ValidateLeaveTransition(
+            LeaveRequestStatus.Pending,
+            LeaveRequestStatus.Rejected,
+            new DateOnly(2026, 8, 10),
+            reason: null);
+
+        Assert.IsTrue(periodErrors.Any(error =>
+            error.Code == "LEAVE_END_DATE_REQUIRED" && error.Field == "dateTo"));
+        Assert.IsTrue(transitionErrors.Any(error =>
+            error.Code == "LEAVE_DECISION_REASON_REQUIRED" && error.Field == "reason"));
+    }
 }

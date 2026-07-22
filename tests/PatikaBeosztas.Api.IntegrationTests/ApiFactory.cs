@@ -178,6 +178,10 @@ internal static class IntegrationTestData
                 ApplicationPermission.ManageEmployees,
                 ApplicationPermission.ManageLocations,
                 ApplicationPermission.ManageUsers,
+                ApplicationPermission.ManageWorkPreferences,
+                ApplicationPermission.ManageAllLeaveRequests,
+                ApplicationPermission.ApproveLeaveRequests,
+                ApplicationPermission.RecordLeaveForOthers,
                 ApplicationPermission.ViewOwnSchedule
             ],
             now);

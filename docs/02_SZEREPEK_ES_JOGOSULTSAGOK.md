@@ -5,8 +5,10 @@
 ### Application permissions
 - ViewOwnSchedule
 - ManageOwnLeaveRequests
+- ManageWorkPreferences
 - ManageAllLeaveRequests
 - ApproveLeaveRequests
+- RecordLeaveForOthers
 - ManageEmployees
 - ManageLocations
 - ManageCoverageRules
@@ -15,9 +17,14 @@
 - UseAiAssistant
 - ManageUsers
 
-Az 1. fázis API-ja ezek közül a `ManageEmployees`, `ManageLocations` és
-`ManageUsers` policy-ket használja. A többi permission a következő
-vertikális szeletek stabil neve.
+Az 1. fázis API-ja a `ManageEmployees`, `ManageLocations` és `ManageUsers`
+policy-ket használja. A Phase 2A-ban a saját távolléti műveletekhez
+`ManageOwnLeaveRequests`, a szervezeti listához `ManageAllLeaveRequests`, a
+jóváhagyáshoz/elutasításhoz `ApproveLeaveRequests`, a más nevében történő
+rögzítéshez és a betegállomány adminisztratív életciklusához
+`RecordLeaveForOthers`, a más dolgozó munkapreferenciáinak kezeléséhez
+pedig `ManageWorkPreferences` szükséges. A saját munkapreferencia
+hitelesített, kapcsolt dolgozóhoz kötött self-service művelet.
 
 A generálás-központú beosztási fázisban a teljes és részleges generálás
 `RunAutoFill`, a beosztás állapotátmenetei és korlátozott korrekciói

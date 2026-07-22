@@ -23,6 +23,12 @@ public sealed class PatikaDbContext(
     public DbSet<EmployeeAllowedTimeType> EmployeeAllowedTimeTypes =>
         Set<EmployeeAllowedTimeType>();
 
+    public DbSet<WorkPreference> WorkPreferences => Set<WorkPreference>();
+
+    public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
+
+    public DbSet<LeaveStatusHistory> LeaveStatusHistories => Set<LeaveStatusHistory>();
+
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
@@ -36,6 +42,8 @@ public sealed class PatikaDbContext(
         ConfigureEmployees(builder);
         ConfigureLocations(builder);
         ConfigureEmployeeSettings(builder);
+        ConfigureWorkPreferences(builder);
+        ConfigureLeaveRequests(builder);
         ConfigurePermissions(builder);
         ConfigureAudit(builder);
     }
@@ -214,6 +222,149 @@ public sealed class PatikaDbContext(
         });
     }
 
+    private static void ConfigureWorkPreferences(ModelBuilder builder)
+    {
+        builder.Entity<WorkPreference>(entity =>
+        {
+            entity.ToTable("WorkPreferences");
+            entity.HasKey(preference => preference.Id);
+            entity.Property(preference => preference.Type)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(preference => preference.Note).HasMaxLength(1000);
+            entity.Property(preference => preference.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin");
+            entity.HasAlternateKey(preference => new
+            {
+                preference.OrganizationId,
+                preference.Id
+            });
+            entity.HasIndex(preference => new
+            {
+                preference.OrganizationId,
+                preference.EmployeeId,
+                preference.IsActive,
+                preference.DateFrom,
+                preference.DateTo
+            });
+            entity.HasOne(preference => preference.Employee)
+                .WithMany()
+                .HasForeignKey(preference => new
+                {
+                    preference.OrganizationId,
+                    preference.EmployeeId
+                })
+                .HasPrincipalKey(employee => new { employee.OrganizationId, employee.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(preference => preference.Location)
+                .WithMany()
+                .HasForeignKey(preference => new
+                {
+                    preference.OrganizationId,
+                    preference.LocationId
+                })
+                .HasPrincipalKey(location => new { location.OrganizationId, location.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+
+    private static void ConfigureLeaveRequests(ModelBuilder builder)
+    {
+        builder.Entity<LeaveRequest>(entity =>
+        {
+            entity.ToTable("LeaveRequests");
+            entity.HasKey(request => request.Id);
+            entity.Property(request => request.Type)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(request => request.Status)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(request => request.EmployeeNote).HasMaxLength(1000);
+            entity.Property(request => request.DecisionReason).HasMaxLength(1000);
+            entity.Property(request => request.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin");
+            entity.HasAlternateKey(request => new
+            {
+                request.OrganizationId,
+                request.Id
+            });
+            entity.HasIndex(request => new
+            {
+                request.OrganizationId,
+                request.EmployeeId,
+                request.Status,
+                request.DateFrom
+            });
+            entity.HasOne(request => request.Employee)
+                .WithMany()
+                .HasForeignKey(request => new
+                {
+                    request.OrganizationId,
+                    request.EmployeeId
+                })
+                .HasPrincipalKey(employee => new { employee.OrganizationId, employee.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(request => new
+                {
+                    request.OrganizationId,
+                    request.CreatedByUserId
+                })
+                .HasPrincipalKey(user => new { user.OrganizationId, user.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(request => new
+                {
+                    request.OrganizationId,
+                    request.DecidedByUserId
+                })
+                .HasPrincipalKey(user => new { user.OrganizationId, user.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<LeaveStatusHistory>(entity =>
+        {
+            entity.ToTable("LeaveStatusHistories");
+            entity.HasKey(history => history.Id);
+            entity.Property(history => history.FromStatus)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(history => history.ToStatus)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(history => history.Reason).HasMaxLength(1000);
+            entity.HasIndex(history => new
+            {
+                history.OrganizationId,
+                history.LeaveRequestId,
+                history.OccurredAtUtc
+            });
+            entity.HasOne(history => history.LeaveRequest)
+                .WithMany(request => request.StatusHistory)
+                .HasForeignKey(history => new
+                {
+                    history.OrganizationId,
+                    history.LeaveRequestId
+                })
+                .HasPrincipalKey(request => new { request.OrganizationId, request.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(history => new
+                {
+                    history.OrganizationId,
+                    history.ActorUserId
+                })
+                .HasPrincipalKey(user => new { user.OrganizationId, user.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+
     private static void ConfigureAudit(ModelBuilder builder)
     {
         builder.Entity<AuditLog>(entity =>
@@ -242,6 +393,15 @@ public sealed class PatikaDbContext(
         if (illegalEntries.Length > 0)
         {
             throw new InvalidOperationException("Az auditbejegyzések nem módosíthatók és nem törölhetők.");
+        }
+
+        var illegalHistoryEntries = ChangeTracker.Entries<LeaveStatusHistory>()
+            .Where(entry => entry.State is EntityState.Modified or EntityState.Deleted)
+            .ToArray();
+        if (illegalHistoryEntries.Length > 0)
+        {
+            throw new InvalidOperationException(
+                "A távolléti státusztörténet nem módosítható és nem törölhető.");
         }
     }
 }

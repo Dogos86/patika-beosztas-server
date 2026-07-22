@@ -141,6 +141,22 @@ kezelése, valamint a hétvégi és délutáni/esti kategóriák szervezeti defi
 nincs rögzítve. Ezek nélkül a frontend intervallumválasztása, a generátor és a
 sorösszesítések eltérően számolhatnak.
 
+## Phase 2A preferenciák és távollétek
+
+### P2A-001 – Átfedő munkapreferenciák prioritása
+
+A runtime az Available/Preferred/Avoid/Unavailable/Fixed rekordok alakját és
+tenant-határát validálja, de nem talál ki prioritást egymást átfedő konkrét,
+ismétlődő, telephelyes vagy telephelyfüggetlen rekordokra. Ezt a generátor
+előtt termékdöntéssel kell lezárni.
+
+### P2A-002 – Távollét hatása és értesítések
+
+A Phase 2A a kérelmet, státusztörténetet, auditot és jogosultságokat
+valósítja meg. Az Approved/Cancelled vagy betegállomány-változás meglévő
+beosztásra, generátorra és dolgozói értesítésre gyakorolt tranzakciós
+hatását a beosztási vertikális szeletben kell meghatározni.
+
 ## Hitelesítés és üzemeltetés
 
 Az 1. fázis aktív promptja az első implementációra ASP.NET Core Identity +

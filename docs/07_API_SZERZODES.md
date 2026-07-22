@@ -9,12 +9,19 @@ Példák:
 - `GET /api/me/leave-requests`
 - `POST /api/me/leave-requests`
 - `POST /api/me/leave-requests/{id}/withdraw`
+- `GET|POST /api/me/work-preferences`
+- `PUT /api/me/work-preferences/{id}`
+- `POST /api/me/work-preferences/{id}/deactivate`
 
 ## Admin műveletek
 
 - `GET /api/admin/leave-requests`
-- `POST /api/admin/leave-requests`
+- `POST /api/admin/employees/{employeeId}/leave-requests`
 - `POST /api/admin/leave-requests/{id}/decision`
+- `POST /api/admin/leave-requests/{id}/record|close|cancel`
+- `GET|POST /api/admin/employees/{employeeId}/work-preferences`
+- `PUT /api/admin/work-preferences/{id}` és
+  `POST /api/admin/work-preferences/{id}/deactivate`
 - dolgozók, telephelyek, lefedettség CRUD megfelelő permissionnel.
 
 Az 1. fázis megvalósított admin útvonalai:
@@ -28,6 +35,8 @@ Az 1. fázis megvalósított admin útvonalai:
 - `/api/admin/users/{id}/status`.
 
 Az admin requestek nem tartalmaznak `organizationId` vagy aktorazonosítót.
+A saját WorkPreference- és LeaveRequest-create contract nem tartalmaz
+`employeeId`-t; azt kizárólag a session kapcsolt dolgozója adja.
 A user lista és részletező válasz `version` mezőt tartalmaz; a permission-,
 employee-link- és státusz-PUT `expectedVersion` értéket kér.
 
@@ -54,7 +63,7 @@ elkülönítenie:
 
 Az alkalmazási műveletek pontos útvonalai a Phase 3 implementációval együtt
 kerülnek a futó OpenAPI-ba. A `contracts/api-contract-draft.yaml` jelenleg az
-implementált Phase 1.5 felület szerződése; jövőbeli útvonalat nem szabad
+implementált Phase 2A felület szerződése; jövőbeli útvonalat nem szabad
 implementáltként feltüntetnie.
 
 ### Admin munkatér read model

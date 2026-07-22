@@ -31,6 +31,11 @@ A reverse proxy, Forwarded Headers, tartós Data Protection kulcstár,
 - hozzáférés csak szükséges jogosultságoknak;
 - megőrzési szabály szervezeti és jogi egyeztetés tárgya.
 
+A Phase 2A public request/response típusai nem tartalmaznak diagnózismezőt.
+Nyitott betegállomány tárolható, de betegállományhoz dolgozói szabad szöveg
+nem fogadható el. A szervezetidegen azonosítók 404-et adnak; a self-service
+employee azonosítóját a szerver a sessionből oldja fel.
+
 ## Audit események
 
 Legalább:
@@ -43,6 +48,12 @@ Legalább:
 - beosztás review, jóváhagyás, közzététel és archiválás állapotátmenete;
 - jogosultság módosítás;
 - AI előnézet végrehajtása.
+
+A Phase 2A ezen felül auditálja a WorkPreference létrehozását,
+módosítását és inaktiválását, valamint minden LeaveRequest
+létrehozást, módosítást és státuszátmenetet. A LeaveStatusHistory és az
+AuditLog meglévő sorai alkalmazási mentésen keresztül nem módosíthatók és
+nem törölhetők.
 
 Az audit tartalmazza az aktort, időpontot, szervezetet, entitást, műveletet és korrelációs azonosítót, de ne másolja be korlátlanul az érzékeny szabad szöveget.
 

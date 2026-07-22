@@ -11,13 +11,19 @@
 
 ## Kérelem
 
-1. Teljes napos szabadság → Pending.
+1. Teljes napos szabadság → Draft → Pending.
 2. Résznapos kérelem percre pontosan.
 3. Függő kérelem visszavonás.
 4. Jóváhagyás és értesítés.
 5. Elutasítás indokkal.
 6. Két párhuzamos döntésből egy kap 409-et.
 7. Betegállománynál nincs diagnózis mező/adat.
+8. Nyitott betegállomány `Reported` → `Recorded` → `Closed`, lezáráskor
+   végdátummal.
+9. Saját munkapreferencia employee azonosítója a sessionből származik;
+   idegen dolgozó és idegen szervezet határa tesztelt.
+10. WorkPreference- és LeaveRequest-mutáció CSRF nélkül sikertelen.
+11. Stale `xmin` verzió 409-et ad, az audit és a státusztörténet megmarad.
 
 ## Beosztás
 

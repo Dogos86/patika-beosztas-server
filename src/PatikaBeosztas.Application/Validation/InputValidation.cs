@@ -118,6 +118,77 @@ public static class InputValidation
             : ["A szakmai szerepkör és a gyógyszerészi lefedettségi jelző eltér. Ez engedélyezett, de ellenőrizendő."];
     }
 
+    public static IReadOnlyList<ApiValidationError> ValidateWorkPreference(
+        DateOnly dateFrom,
+        DateOnly dateTo,
+        bool isFullDay,
+        TimeOnly? startTime,
+        TimeOnly? endTime,
+        string? note) =>
+        WorkPreferenceRules.Validate(
+                dateFrom,
+                dateTo,
+                isFullDay,
+                startTime,
+                endTime,
+                note)
+            .Select(issue => new ApiValidationError(
+                issue.Code,
+                issue.Message,
+                issue.Code switch
+                {
+                    "WORK_PREFERENCE_DATE_ORDER" => "dateTo",
+                    "WORK_PREFERENCE_NOTE_TOO_LONG" => "note",
+                    _ => "startTime"
+                }))
+            .ToArray();
+
+    public static IReadOnlyList<ApiValidationError> ValidateLeaveRequest(
+        LeaveType type,
+        DateOnly dateFrom,
+        DateOnly? dateTo,
+        bool isFullDay,
+        TimeOnly? startTime,
+        TimeOnly? endTime,
+        string? employeeNote) =>
+        LeaveRequestRules.ValidatePeriod(
+                type,
+                dateFrom,
+                dateTo,
+                isFullDay,
+                startTime,
+                endTime,
+                employeeNote)
+            .Select(issue => new ApiValidationError(
+                issue.Code,
+                issue.Message,
+                issue.Code switch
+                {
+                    "LEAVE_END_DATE_REQUIRED" or "LEAVE_DATE_ORDER" => "dateTo",
+                    "LEAVE_NOTE_TOO_LONG" or "SICK_LEAVE_NOTE_NOT_ALLOWED" =>
+                        "employeeNote",
+                    _ => "startTime"
+                }))
+            .ToArray();
+
+    public static IReadOnlyList<ApiValidationError> ValidateLeaveTransition(
+        LeaveRequestStatus from,
+        LeaveRequestStatus to,
+        DateOnly? dateTo,
+        string? reason) =>
+        LeaveRequestRules.ValidateTransition(from, to, dateTo, reason)
+            .Select(issue => new ApiValidationError(
+                issue.Code,
+                issue.Message,
+                issue.Code switch
+                {
+                    "SICK_LEAVE_END_DATE_REQUIRED_TO_CLOSE" => "dateTo",
+                    "LEAVE_DECISION_REASON_REQUIRED" or
+                        "LEAVE_DECISION_REASON_TOO_LONG" => "reason",
+                    _ => "status"
+                }))
+            .ToArray();
+
     private static void ValidateRequiredText(
         string value,
         int maximumLength,

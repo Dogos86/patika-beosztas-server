@@ -27,6 +27,43 @@ public enum EmployeeTimeWindowType
     Forbidden
 }
 
+public enum WorkPreferenceType
+{
+    Available,
+    Preferred,
+    Avoid,
+    Unavailable,
+    Fixed
+}
+
+public enum LeaveType
+{
+    AnnualLeave,
+    SickLeave,
+    UnpaidLeave,
+    ParentalLeave,
+    Other
+}
+
+public enum LeaveRequestStatus
+{
+    Draft,
+    Pending,
+    Approved,
+    Rejected,
+    Withdrawn,
+    Cancelled,
+    Reported,
+    Recorded,
+    Closed
+}
+
+public enum LeaveDecision
+{
+    Approve,
+    Reject
+}
+
 public enum TimeType
 {
     Work,
@@ -48,8 +85,10 @@ public enum ApplicationPermission
 {
     ViewOwnSchedule,
     ManageOwnLeaveRequests,
+    ManageWorkPreferences,
     ManageAllLeaveRequests,
     ApproveLeaveRequests,
+    RecordLeaveForOthers,
     ManageEmployees,
     ManageLocations,
     ManageCoverageRules,
