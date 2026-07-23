@@ -147,6 +147,40 @@ function Assert-OpenApiDocument {
             throw "A runtime OpenAPI dokumentumból hiányzik a várt útvonal: $path"
         }
     }
+
+    $requiredStringEnums = @(
+        "ApplicationPermission",
+        "ProfessionalRole",
+        "LocationType",
+        "EmployeeTimeWindowType",
+        "TimeType",
+        "WorkPreferenceType",
+        "LeaveType",
+        "LeaveRequestStatus",
+        "LeaveDecision",
+        "DayOfWeek",
+        "OpeningDayMode",
+        "ShiftTemplateCategory",
+        "StaffingCapability",
+        "CoverageSeverity",
+        "ShiftQuotaDimension",
+        "QuotaPeriod",
+        "QuotaSeverity"
+    )
+    foreach ($schemaName in $requiredStringEnums) {
+        $schemaProperty = $document.components.schemas.PSObject.Properties[$schemaName]
+        if ($null -eq $schemaProperty) {
+            throw "A runtime OpenAPI dokumentumból hiányzik a várt enum séma: $schemaName"
+        }
+
+        $schema = $schemaProperty.Value
+        if ($schema.type -ne "string" -or
+            $null -eq $schema.enum -or
+            @($schema.enum).Count -eq 0 -or
+            @($schema.enum | Where-Object { $_ -isnot [string] }).Count -gt 0) {
+            throw "A runtime OpenAPI enum nem kizárólag string értékeket tartalmaz: $schemaName"
+        }
+    }
 }
 
 if (Test-Path -LiteralPath $envFile -PathType Leaf) {

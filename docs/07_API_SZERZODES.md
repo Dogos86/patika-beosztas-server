@@ -161,6 +161,6 @@ A frontend típusgenerálás kanonikus bemenete a tényleges
 `GET /openapi/v1.json` válaszból előállított
 `contracts/openapi.phase2b.json`. Az `eng/export-openapi.ps1` validálja a
 runtime API címét, `0.3.0-phase2b` verzióját és a megvalósított modulok
-útvonalait, majd a kapott JSON-választ változtatás nélküli contractként menti.
-A fájlt kézzel nem szabad szerkeszteni; a draft YAML továbbra is egyeztetési
-vázlat.
+útvonalait, valamint a publikus enumok string reprezentációját, majd a kapott
+JSON-választ változtatás nélküli contractként menti. A fájlt kézzel nem szabad
+szerkeszteni; a draft YAML továbbra is egyeztetési vázlat.

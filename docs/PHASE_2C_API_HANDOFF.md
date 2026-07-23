@@ -26,7 +26,9 @@ Az `eng/start-local-api.ps1` a repository `.env` fájljából tölti be a helyi
 PostgreSQL-, connection string-, seed- és CORS-konfigurációt. Ellenőrzi a .NET
 10 SDK-t és a Docker motort, elindítja a `postgres` compose szolgáltatást, majd
 Development környezetben a `https://localhost:7180` címen indítja az API-t.
-Titkos konfigurációs értéket nem ír ki.
+Titkos konfigurációs értéket nem ír ki. A PostgreSQL konténer 5432-es portja
+alapértelmezetten csak a host `127.0.0.1:55432` címén érhető el; a
+`POSTGRES_HOST_PORT` és a connection string `Port` értéke együtt módosítandó.
 
 A Development alap-origin `https://localhost:5173`, amely a
 `Cors__AllowedOrigins__0` környezeti változóval felülírható. A policy pontos

@@ -201,9 +201,16 @@ public static class DevelopmentDataSeeder
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        var fixedDemoEmployeeIds = new[]
+        {
+            AdminEmployeeId,
+            RegularEmployeeId,
+            OfflineEmployeeId
+        };
         var pharmacistEmployeeIds = await dbContext.Employees
             .Where(employee =>
                 employee.OrganizationId == OrganizationId &&
+                fixedDemoEmployeeIds.Contains(employee.Id) &&
                 (employee.CountsAsPharmacist ||
                  employee.ProfessionalRole == ProfessionalRole.PharmacyManager))
             .Select(employee => employee.Id)

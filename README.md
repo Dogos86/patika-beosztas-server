@@ -43,9 +43,13 @@ megbízható, a script jelzi az egyszer futtatandó parancsot:
 dotnet dev-certs https --trust
 ```
 
-Az adatbázis csak a helyi `127.0.0.1:5432` címen publikálódik. A `.env`
-gitignore-olt; production secretet ne adj a repositoryhoz. A script futása az
-API konzolát foglalja, leállítása `Ctrl+C`.
+Az adatbázis a konténeren belüli 5432-es portot alapértelmezetten csak a helyi
+`127.0.0.1:55432` címre publikálja. A `.env` fájlban a
+`POSTGRES_HOST_PORT=55432` és a
+`ConnectionStrings__DefaultConnection` `Port=55432` értéke maradjon azonos, ha
+másik host portot választasz. A `.env` gitignore-olt; production secretet ne
+adj a repositoryhoz. A script futása az API konzolát foglalja, leállítása
+`Ctrl+C`.
 
 ## Development seed
 
@@ -155,8 +159,9 @@ Get-FileHash .\contracts\openapi.phase2b.json -Algorithm SHA256
 Ha a megfelelő API már fut, a script azt használja. Egyébként ellenőrzi a
 szükséges környezeti változókat, elindítja a helyi PostgreSQL-t, Release buildet
 készít, ideiglenesen elindítja az API-t, validálja az API címét, a
-`0.3.0-phase2b` verziót és a megvalósított modulok útvonalait, majd csak az
-általa indított API-folyamatot állítja le. A frontend generált típusainak forrása:
+`0.3.0-phase2b` verziót, a megvalósított modulok útvonalait és a publikus
+string enumokat, majd csak az általa indított API-folyamatot állítja le. A
+frontend generált típusainak forrása:
 `contracts/openapi.phase2b.json`.
 
 ## Migráció és minőségi kapuk

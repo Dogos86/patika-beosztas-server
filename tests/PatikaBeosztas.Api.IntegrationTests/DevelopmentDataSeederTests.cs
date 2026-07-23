@@ -58,9 +58,15 @@ public sealed class DevelopmentDataSeederTests
                 CreatedAtUtc = now,
                 UpdatedAtUtc = now
             });
+            var customEmployee = CreateEmployee(
+                customEmployeeId,
+                "Felhasználó saját dolgozója",
+                now);
+            customEmployee.ProfessionalRole = ProfessionalRole.PharmacyManager;
+            customEmployee.CountsAsPharmacist = true;
             dbContext.Employees.AddRange(
                 CreateEmployee(AdminEmployeeId, "Meglévő demo admin", now),
-                CreateEmployee(customEmployeeId, "Felhasználó saját dolgozója", now));
+                customEmployee);
             await dbContext.SaveChangesAsync();
         }
 
@@ -118,6 +124,10 @@ public sealed class DevelopmentDataSeederTests
                 2,
                 await dbContext.Users.CountAsync(
                     user => user.OrganizationId == DemoOrganizationId));
+            Assert.IsFalse(
+                await dbContext.EmployeeCapabilities.AnyAsync(
+                    capability => capability.EmployeeId == customEmployeeId),
+                "A Development seed nem módosíthat felhasználó által létrehozott dolgozót.");
         }
 
         await application.Services.InitializeDevelopmentDatabaseAsync(
@@ -131,6 +141,40 @@ public sealed class DevelopmentDataSeederTests
             4,
             await verificationContext.Employees.CountAsync(
                 employee => employee.OrganizationId == DemoOrganizationId));
+    }
+
+    [TestMethod]
+    public async Task ProductionEnvironmentDoesNotRunDevelopmentSeed()
+    {
+        await using var application = new ApiFactory(
+            PostgreSqlTestEnvironment.GetConnectionString());
+        _ = application.Server;
+
+        await using (var scope = application.Services.CreateAsyncScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<PatikaDbContext>();
+            await dbContext.Database.EnsureDeletedAsync();
+            await dbContext.Database.MigrateAsync();
+        }
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Seed:Enabled"] = "true",
+                ["Seed:DemoPassword"] = "Development-Seed123!"
+            })
+            .Build();
+
+        await application.Services.InitializeDevelopmentDatabaseAsync(
+            new TestWebHostEnvironment("Production"),
+            configuration);
+
+        await using var verificationScope = application.Services.CreateAsyncScope();
+        var verificationContext =
+            verificationScope.ServiceProvider.GetRequiredService<PatikaDbContext>();
+        Assert.AreEqual(0, await verificationContext.Organizations.CountAsync());
+        Assert.AreEqual(0, await verificationContext.Employees.CountAsync());
+        Assert.AreEqual(0, await verificationContext.Users.CountAsync());
     }
 
     private static Employee CreateEmployee(Guid id, string name, DateTimeOffset now) =>
