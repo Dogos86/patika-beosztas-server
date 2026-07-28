@@ -109,3 +109,29 @@
 6. Lejárt előnézet 409.
 7. Ugyanaz az idempotency key nem duplikál műveletet.
 8. Hangfájl alapértelmezésben nem marad meg.
+
+## Phase 2D HR/bérszámfejtési belépés
+
+1. A payroll profil CRUD titkosított adóazonosítót tárol, API-lista/summary
+   csak maszkolt értéket ad, a teljes érték külön permissiont igényel.
+2. Beosztási permission önmagában nem ad hozzáférést payroll profilhoz,
+   survey-hez vagy exporthoz.
+3. A self-service survey dolgozóját a sessionből oldja fel; más szervezet
+   ismert GUID-ja 404.
+4. CSRF nélküli mutáció 400, stale `xmin` verzió 409.
+5. A 2026-os validáció kezeli a darabszámokat, hatálydátumokat, YYYY-MM
+   hónapokat és az egymásnak ellentmondó mezőket.
+6. Beküldött survey csak admin visszanyitás után szerkeszthető; a
+   submit/review/reopen/complete állapotgép tiltja a rövidítéseket.
+7. A `HU-2026.1` döntési motor mind a hét nyilatkozattípusról reprodukálható
+   javaslatot ad; ismeretlen vagy külföldi válasz tisztázást kér.
+8. Kézi szükségességi felülírás csak indoklással menthető, és újraértékeléskor
+   megmarad.
+9. A nyilatkozat státuszfolyamata nem ugorható át a Required állapottól az
+   Applied állapotig.
+10. A JSON/CSV belépési export permission-védett, auditált, és nem tartalmaz
+    adóazonosítót, hitelesítési vagy szükségtelen egészségügyi adatot.
+11. Profil-, summary-, survey- és checklist-megtekintés, minden mutáció és
+    export redaktált auditbejegyzést hoz létre.
+12. A public contractban nincs diagnózis-, betegségnév-, orvosi lelet- vagy
+    dokumentumfeltöltési mező.

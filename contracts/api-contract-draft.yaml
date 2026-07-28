@@ -1,10 +1,12 @@
 openapi: 3.1.0
 info:
   title: Patika Beosztás API
-  version: 0.3.0-phase2b
+  version: 0.4.0-phase2d
   description: >-
-    A Phase 2B frontend–backend szerződése. A futó backend
+    A Phase 2D frontend–backend egyeztetési szerződése. A futó backend
     /openapi/v1.json dokumentuma a generált frontend típusok végleges forrása.
+    A 2026-os adókedvezmény-felmérő belső igényfelmérő, nem hivatalos
+    NAV-nyilatkozat, nem számít adót és nem állapít meg végleges jogosultságot.
     A frontend HTTPS-en, az API-val azonos site alatt fusson, és a cookie-s
     kérésekhez credentials: include beállítást használjon.
 servers:
@@ -22,6 +24,10 @@ tags:
   - name: Employee capabilities
   - name: Employee work profiles
   - name: Employee shift quota rules
+  - name: Payroll onboarding
+  - name: Tax allowance surveys
+  - name: Tax declaration requirements
+  - name: Payroll onboarding exports
 paths:
   /api/auth/csrf:
     get:
@@ -1352,6 +1358,381 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /api/me/payroll-onboarding:
+    get:
+      tags: [Payroll onboarding]
+      summary: Saját HR/bérszámfejtési belépési összefoglaló
+      responses:
+        '200':
+          description: Saját összefoglaló, maszkolt adóazonosítóval
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayrollOnboardingSummaryResponse' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/me/tax-allowance-surveys:
+    post:
+      tags: [Tax allowance surveys]
+      summary: Saját belső adókedvezmény-felmérő létrehozása
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateTaxAllowanceSurveyRequest' }
+      responses:
+        '201':
+          description: Létrehozott belső felmérő
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaxAllowanceSurveyResponse' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/me/tax-allowance-surveys/{taxYear}:
+    parameters:
+      - in: path
+        name: taxYear
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Tax allowance surveys]
+      summary: Saját belső adókedvezmény-felmérő lekérése
+      responses:
+        '200':
+          description: Belső felmérő
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaxAllowanceSurveyResponse' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /api/me/tax-allowance-surveys/{id}:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    put:
+      tags: [Tax allowance surveys]
+      summary: Saját piszkozat módosítása
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateOwnTaxAllowanceSurveyRequest' }
+      responses:
+        '200':
+          description: Módosított felmérő
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaxAllowanceSurveyResponse' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/me/tax-allowance-surveys/{id}/submit:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Tax allowance surveys]
+      summary: Saját belső felmérő beküldése
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaxSurveyVersionRequest' }
+      responses:
+        '200':
+          description: Beküldött vagy tisztázást igénylő felmérő
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaxAllowanceSurveyResponse' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/employees/{employeeId}/payroll-onboarding:
+    parameters:
+      - $ref: '#/components/parameters/EmployeeId'
+    get:
+      tags: [Payroll onboarding]
+      summary: Dolgozó HR/bérszámfejtési belépési összefoglalója
+      x-required-permission: ManagePayrollOnboarding
+      responses:
+        '200':
+          description: Maszkolt onboarding összefoglaló
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayrollOnboardingSummaryResponse' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /api/admin/employees/{employeeId}/payroll-onboarding/complete:
+    parameters:
+      - $ref: '#/components/parameters/EmployeeId'
+    post:
+      tags: [Payroll onboarding]
+      summary: HR/bérszámfejtési belépés lezárása
+      x-required-permission: ManagePayrollOnboarding
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CompletePayrollOnboardingRequest' }
+      responses:
+        '200':
+          description: Lezárt onboarding
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayrollOnboardingSummaryResponse' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/employees/{employeeId}/payroll-profile:
+    parameters:
+      - $ref: '#/components/parameters/EmployeeId'
+    get:
+      tags: [Payroll onboarding]
+      summary: Dolgozó bérszámfejtési profiljának lekérése
+      x-required-permission: ManagePayrollOnboarding
+      responses:
+        '200':
+          description: Bérszámfejtési profil
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmployeePayrollProfileResponse' }
+        '404': { $ref: '#/components/responses/Problem' }
+    put:
+      tags: [Payroll onboarding]
+      summary: Dolgozó bérszámfejtési profiljának upsertje
+      x-required-permission: ManagePayrollOnboarding
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateEmployeePayrollProfileRequest' }
+      responses:
+        '200':
+          description: Módosított profil
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmployeePayrollProfileResponse' }
+        '201':
+          description: Létrehozott profil
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmployeePayrollProfileResponse' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/employees/{employeeId}/payroll-onboarding/export:
+    parameters:
+      - $ref: '#/components/parameters/EmployeeId'
+      - in: query
+        name: format
+        schema:
+          type: string
+          enum: [json, csv]
+          default: json
+    get:
+      tags: [Payroll onboarding exports]
+      summary: Vendor-neutral belépési export v1
+      x-required-permission: ExportPayrollData
+      responses:
+        '200':
+          description: JSON vagy CSV belépési csomag
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayrollOnboardingExportV1' }
+            text/csv:
+              schema: { type: string }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /api/admin/employees/{employeeId}/tax-allowance-surveys/{taxYear}:
+    parameters:
+      - $ref: '#/components/parameters/EmployeeId'
+      - in: path
+        name: taxYear
+        required: true
+        schema: { type: integer }
+    get:
+      tags: [Tax allowance surveys]
+      summary: Dolgozó belső felmérőjének lekérése
+      x-required-permission: ReviewTaxAllowanceSurvey
+      responses:
+        '200':
+          description: Belső felmérő
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaxAllowanceSurveyResponse' }
+        '404': { $ref: '#/components/responses/Problem' }
+    put:
+      tags: [Tax allowance surveys]
+      summary: Dolgozó belső felmérőjének upsertje
+      x-required-permission: ManagePayrollOnboarding
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateTaxAllowanceSurveyRequest' }
+      responses:
+        '200':
+          description: Módosított felmérő
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaxAllowanceSurveyResponse' }
+        '201':
+          description: Létrehozott felmérő
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaxAllowanceSurveyResponse' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/tax-allowance-surveys/{id}/submit:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Tax allowance surveys]
+      summary: Admin által rögzített felmérő beküldése
+      x-required-permission: ManagePayrollOnboarding
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaxSurveyVersionRequest' }
+      responses:
+        '200':
+          description: Beküldött felmérő
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaxAllowanceSurveyResponse' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/tax-allowance-surveys/{id}/reopen:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Tax allowance surveys]
+      summary: Felmérő visszanyitása
+      x-required-permission: ManagePayrollOnboarding
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaxSurveyVersionRequest' }
+      responses:
+        '200':
+          description: Visszanyitott felmérő
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaxAllowanceSurveyResponse' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/tax-allowance-surveys/{id}/review:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Tax allowance surveys]
+      summary: Felmérő HR/bérszámfejtői ellenőrzése
+      x-required-permission: ReviewTaxAllowanceSurvey
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewTaxAllowanceSurveyRequest' }
+      responses:
+        '200':
+          description: Ellenőrzött felmérő
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaxAllowanceSurveyResponse' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/tax-allowance-surveys/{id}/complete:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    post:
+      tags: [Tax allowance surveys]
+      summary: Ellenőrzött felmérő lezárása
+      x-required-permission: ManagePayrollOnboarding
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaxSurveyVersionRequest' }
+      responses:
+        '200':
+          description: Lezárt felmérő
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaxAllowanceSurveyResponse' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/employees/{employeeId}/tax-declaration-requirements:
+    parameters:
+      - $ref: '#/components/parameters/EmployeeId'
+      - in: query
+        name: surveyId
+        schema: { type: [string, 'null'], format: uuid }
+    get:
+      tags: [Tax declaration requirements]
+      summary: Javasolt nyilatkozat-checklist lekérése
+      x-required-permission: ReviewTaxAllowanceSurvey
+      responses:
+        '200':
+          description: Checklist
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/TaxDeclarationRequirementResponse' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /api/admin/tax-declaration-requirements/{id}/status:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    put:
+      tags: [Tax declaration requirements]
+      summary: Nyilatkozat workflow-státuszának módosítása
+      x-required-permission: ManagePayrollOnboarding
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateTaxDeclarationStatusRequest' }
+      responses:
+        '200':
+          description: Módosított checklist-elem
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaxDeclarationRequirementResponse' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/admin/tax-declaration-requirements/{id}/override:
+    parameters:
+      - $ref: '#/components/parameters/EntityId'
+    put:
+      tags: [Tax declaration requirements]
+      summary: Nyilatkozat-javaslat kézi felülírása
+      x-required-permission: ManagePayrollOnboarding
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OverrideTaxDeclarationRequirementRequest' }
+      responses:
+        '200':
+          description: Felülírt checklist-elem
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaxDeclarationRequirementResponse' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
 components:
   securitySchemes:
     cookieAuth:
@@ -1436,6 +1817,60 @@ components:
         - RunAutoFill
         - UseAiAssistant
         - ManageUsers
+        - ManagePayrollOnboarding
+        - ViewPayrollSensitiveData
+        - ReviewTaxAllowanceSurvey
+        - ExportPayrollData
+    EmployeePayrollProfileStatus:
+      type: string
+      enum: [Draft, UnderReview, Complete, Archived]
+    TaxAllowanceSurveyStatus:
+      type: string
+      enum: [Draft, Submitted, NeedsClarification, Reviewed, Completed, Cancelled]
+    MonthlyAllowancePreference:
+      type: string
+      enum: [ApplyMonthly, AnnualReturnOnly, NeedsConsultation]
+    MaritalStatus:
+      type: string
+      enum: [Single, Married, Partnership, Divorced, Widowed, Other]
+    SurveyAnswer:
+      type: string
+      enum: [Yes, No, Unknown]
+    MotherAllowanceQualifyingChildrenCount:
+      type: string
+      enum: [None, One, Two, Three, FourPlus, Unknown]
+    FamilyAllowanceClaimMode:
+      type: string
+      enum: [NotRequested, Alone, Shared, Undecided]
+    Under25AllowanceOptOut:
+      type: string
+      enum: [No, Yes, NeedsConsultation]
+    ForeignTaxResidencyOrSimilarForeignBenefit:
+      type: string
+      enum: [None, PresentNeedsConsultation]
+    TaxDeclarationType:
+      type: string
+      enum:
+        - Under25OptOut
+        - Under30Mother
+        - Anyacska
+        - MultiChildMotherAllowance
+        - FamilyAllowance
+        - FirstMarriage
+        - PersonalAllowance
+    TaxDeclarationRequirementStatus:
+      type: string
+      enum:
+        - NotRequired
+        - Required
+        - ToSend
+        - Sent
+        - ReceivedOnya
+        - ReceivedPaper
+        - Verified
+        - Applied
+        - Rejected
+        - Expired
     ProfessionalRole:
       type: string
       enum:
@@ -2241,6 +2676,288 @@ components:
             version: { type: integer, minimum: 1 }
             createdAtUtc: { type: string, format: date-time }
             updatedAtUtc: { type: string, format: date-time }
+    UpdateEmployeePayrollProfileRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - employeeNumber
+        - employmentStartDate
+        - status
+      properties:
+        employeeNumber: { type: string, minLength: 1, maxLength: 50 }
+        taxIdentificationNumber:
+          type: [string, 'null']
+          pattern: '^[0-9]{10}$'
+        employmentStartDate: { type: string, format: date }
+        payrollExternalId: { type: [string, 'null'], maxLength: 100 }
+        status: { $ref: '#/components/schemas/EmployeePayrollProfileStatus' }
+        expectedVersion: { type: [integer, 'null'], minimum: 1 }
+    EmployeePayrollProfileResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - employeeId
+        - employeeNumber
+        - maskedTaxIdentificationNumber
+        - employmentStartDate
+        - status
+        - version
+        - createdAtUtc
+        - createdByUserId
+        - updatedAtUtc
+        - updatedByUserId
+      properties:
+        id: { type: string, format: uuid }
+        employeeId: { type: string, format: uuid }
+        employeeNumber: { type: string }
+        maskedTaxIdentificationNumber: { type: string }
+        taxIdentificationNumber:
+          type: [string, 'null']
+          description: Csak ViewPayrollSensitiveData permissionnel kap értéket.
+        employmentStartDate: { type: string, format: date }
+        payrollExternalId: { type: [string, 'null'] }
+        status: { $ref: '#/components/schemas/EmployeePayrollProfileStatus' }
+        version: { type: integer, minimum: 1 }
+        createdAtUtc: { type: string, format: date-time }
+        createdByUserId: { type: string, format: uuid }
+        updatedAtUtc: { type: string, format: date-time }
+        updatedByUserId: { type: string, format: uuid }
+    TaxAllowanceSurveyAnswers:
+      type: object
+      additionalProperties: false
+      required:
+        - monthlyAllowancePreference
+        - maritalStatus
+        - firstMarriageStatus
+        - familyAllowanceEligibleChildrenCount
+        - dependentStudentCount
+        - hasFetusAfterDay91
+        - hasDisabledDependent
+        - hasSharedCustodyChild
+        - familyAllowanceClaimMode
+        - otherEligiblePersonClaimsPart
+        - isBiologicalOrAdoptiveMother
+        - motherAllowanceQualifyingChildrenCount
+        - hasCurrentOwnChildOrFetusEligibleForFamilyAllowance
+        - personalAllowanceEligibility
+        - hasOtherEmployerOrRegularPayer
+        - under25AllowanceOptOut
+        - foreignTaxResidencyOrSimilarForeignBenefit
+      properties:
+        monthlyAllowancePreference:
+          $ref: '#/components/schemas/MonthlyAllowancePreference'
+        maritalStatus: { $ref: '#/components/schemas/MaritalStatus' }
+        marriageDate: { type: [string, 'null'], format: date }
+        firstMarriageStatus: { $ref: '#/components/schemas/SurveyAnswer' }
+        familyAllowanceEligibleChildrenCount:
+          { type: integer, minimum: 0, maximum: 20 }
+        dependentStudentCount: { type: integer, minimum: 0, maximum: 20 }
+        hasFetusAfterDay91: { type: boolean }
+        fetusEligibilityMonth:
+          type: [string, 'null']
+          pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+        hasDisabledDependent:
+          type: boolean
+          description: Kizárólag szükséges jelző, diagnózis nélkül.
+        hasSharedCustodyChild: { type: boolean }
+        familyAllowanceClaimMode:
+          $ref: '#/components/schemas/FamilyAllowanceClaimMode'
+        otherEligiblePersonClaimsPart:
+          $ref: '#/components/schemas/SurveyAnswer'
+        isBiologicalOrAdoptiveMother: { type: boolean }
+        motherAllowanceQualifyingChildrenCount:
+          $ref: '#/components/schemas/MotherAllowanceQualifyingChildrenCount'
+        hasCurrentOwnChildOrFetusEligibleForFamilyAllowance:
+          $ref: '#/components/schemas/SurveyAnswer'
+        personalAllowanceEligibility:
+          $ref: '#/components/schemas/SurveyAnswer'
+        personalAllowanceStartMonth:
+          type: [string, 'null']
+          pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+        hasOtherEmployerOrRegularPayer:
+          $ref: '#/components/schemas/SurveyAnswer'
+        under25AllowanceOptOut:
+          $ref: '#/components/schemas/Under25AllowanceOptOut'
+        foreignTaxResidencyOrSimilarForeignBenefit:
+          $ref: '#/components/schemas/ForeignTaxResidencyOrSimilarForeignBenefit'
+    CreateTaxAllowanceSurveyRequest:
+      type: object
+      additionalProperties: false
+      required: [taxYear, effectiveFrom, answers]
+      properties:
+        taxYear: { type: integer, const: 2026 }
+        effectiveFrom: { type: string, format: date }
+        answers: { $ref: '#/components/schemas/TaxAllowanceSurveyAnswers' }
+    UpdateOwnTaxAllowanceSurveyRequest:
+      type: object
+      additionalProperties: false
+      required: [effectiveFrom, answers, expectedVersion]
+      properties:
+        effectiveFrom: { type: string, format: date }
+        answers: { $ref: '#/components/schemas/TaxAllowanceSurveyAnswers' }
+        expectedVersion: { type: integer, minimum: 1 }
+    UpdateTaxAllowanceSurveyRequest:
+      type: object
+      additionalProperties: false
+      required: [effectiveFrom, answers]
+      properties:
+        effectiveFrom: { type: string, format: date }
+        answers: { $ref: '#/components/schemas/TaxAllowanceSurveyAnswers' }
+        hrPayrollNote: { type: [string, 'null'], maxLength: 1000 }
+        expectedVersion: { type: [integer, 'null'], minimum: 1 }
+    TaxSurveyVersionRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+    ReviewTaxAllowanceSurveyRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        hrPayrollNote: { type: [string, 'null'], maxLength: 1000 }
+        expectedVersion: { type: integer, minimum: 1 }
+    CompletePayrollOnboardingRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedProfileVersion]
+      properties:
+        expectedProfileVersion: { type: integer, minimum: 1 }
+    TaxDeclarationRequirementResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - employeeId
+        - surveyId
+        - type
+        - requiredDecision
+        - status
+        - effectiveFrom
+        - generatedByRuleVersion
+        - manualOverride
+        - version
+      properties:
+        id: { type: string, format: uuid }
+        employeeId: { type: string, format: uuid }
+        surveyId: { type: string, format: uuid }
+        type: { $ref: '#/components/schemas/TaxDeclarationType' }
+        requiredDecision: { type: boolean }
+        status: { $ref: '#/components/schemas/TaxDeclarationRequirementStatus' }
+        effectiveFrom: { type: string, format: date }
+        effectiveTo: { type: [string, 'null'], format: date }
+        notes: { type: [string, 'null'], maxLength: 1000 }
+        generatedByRuleVersion: { type: string }
+        manualOverride: { type: boolean }
+        manualOverrideReason: { type: [string, 'null'], maxLength: 1000 }
+        version: { type: integer, minimum: 1 }
+        createdAtUtc: { type: string, format: date-time }
+        updatedAtUtc: { type: string, format: date-time }
+    TaxAllowanceSurveyResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - employeeId
+        - taxYear
+        - formVersion
+        - ruleSetVersion
+        - effectiveFrom
+        - sourceMetadata
+        - status
+        - answers
+        - declarationRequirements
+        - version
+      properties:
+        id: { type: string, format: uuid }
+        employeeId: { type: string, format: uuid }
+        taxYear: { type: integer }
+        formVersion: { type: string }
+        ruleSetVersion: { type: string }
+        effectiveFrom: { type: string, format: date }
+        effectiveTo: { type: [string, 'null'], format: date }
+        sourceMetadata: { type: string, maxLength: 500 }
+        status: { $ref: '#/components/schemas/TaxAllowanceSurveyStatus' }
+        answers: { $ref: '#/components/schemas/TaxAllowanceSurveyAnswers' }
+        declaredAtUtc: { type: [string, 'null'], format: date-time }
+        declaredByUserId: { type: [string, 'null'], format: uuid }
+        reviewedAtUtc: { type: [string, 'null'], format: date-time }
+        reviewedByUserId: { type: [string, 'null'], format: uuid }
+        hrPayrollNote: { type: [string, 'null'], maxLength: 1000 }
+        declarationRequirements:
+          type: array
+          items: { $ref: '#/components/schemas/TaxDeclarationRequirementResponse' }
+        version: { type: integer, minimum: 1 }
+        createdAtUtc: { type: string, format: date-time }
+        updatedAtUtc: { type: string, format: date-time }
+    UpdateTaxDeclarationStatusRequest:
+      type: object
+      additionalProperties: false
+      required: [status, expectedVersion]
+      properties:
+        status: { $ref: '#/components/schemas/TaxDeclarationRequirementStatus' }
+        effectiveTo: { type: [string, 'null'], format: date }
+        notes: { type: [string, 'null'], maxLength: 1000 }
+        expectedVersion: { type: integer, minimum: 1 }
+    OverrideTaxDeclarationRequirementRequest:
+      type: object
+      additionalProperties: false
+      required: [requiredDecision, status, reason, expectedVersion]
+      properties:
+        requiredDecision: { type: boolean }
+        status: { $ref: '#/components/schemas/TaxDeclarationRequirementStatus' }
+        reason: { type: string, minLength: 1, maxLength: 1000 }
+        effectiveTo: { type: [string, 'null'], format: date }
+        expectedVersion: { type: integer, minimum: 1 }
+    PayrollOnboardingSummaryResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - employeeId
+        - employeeDisplayName
+        - requiredDeclarationCount
+        - outstandingDeclarationCount
+        - isComplete
+      properties:
+        employeeId: { type: string, format: uuid }
+        employeeDisplayName: { type: string }
+        payrollProfile:
+          oneOf:
+            - $ref: '#/components/schemas/EmployeePayrollProfileResponse'
+            - type: 'null'
+        latestSurvey:
+          oneOf:
+            - $ref: '#/components/schemas/TaxAllowanceSurveyResponse'
+            - type: 'null'
+        requiredDeclarationCount: { type: integer, minimum: 0 }
+        outstandingDeclarationCount: { type: integer, minimum: 0 }
+        isComplete: { type: boolean }
+    PayrollOnboardingExportV1:
+      type: object
+      description: >-
+        Vendor-neutral, auditált belépési export adóazonosító és szükségtelen
+        egészségügyi vagy hitelesítési adat nélkül.
+      required:
+        - schemaVersion
+        - generatedAtUtc
+        - employee
+        - declarationRequirements
+        - profileStatus
+        - onboardingComplete
+      properties:
+        schemaVersion:
+          type: string
+          const: payroll-onboarding-export-v1
+        generatedAtUtc: { type: string, format: date-time }
+        employee: { type: object }
+        survey: { type: [object, 'null'] }
+        declarationRequirements:
+          type: array
+          items: { type: object }
+        profileStatus: { $ref: '#/components/schemas/EmployeePayrollProfileStatus' }
+        onboardingComplete: { type: boolean }
     WorkPremiumTag:
       type: object
       description: Jövőbeli bérszámfejtési címke; összegszámítás nincs.

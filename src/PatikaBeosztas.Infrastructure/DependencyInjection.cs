@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -6,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PatikaBeosztas.Infrastructure.Identity;
 using PatikaBeosztas.Infrastructure.Persistence;
 using PatikaBeosztas.Infrastructure.Security;
+using PatikaBeosztas.Application.Security;
 
 namespace PatikaBeosztas.Infrastructure;
 
@@ -43,6 +45,9 @@ public static class DependencyInjection
 
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
         services.AddScoped<AuditWriter>();
+        services.AddDataProtection()
+            .SetApplicationName("PatikaBeosztas.Payroll");
+        services.AddSingleton<ITaxIdentifierProtector, TaxIdentifierProtector>();
         services.AddSingleton(TimeProvider.System);
 
         return services;

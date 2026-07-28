@@ -1,0 +1,226 @@
+openapi: 3.1.0
+info:
+  title: Patika Beosztás – havi bérszámfejtési export v1 tervezet
+  version: 0.1.0-draft
+  description: >-
+    Vendor-neutral jövőbeli adatcsere-szerződés. Nem runtime API és nem jelent
+    implementált endpointot. A havi export forrása kizárólag admin által
+    ellenőrzött és lezárt tényleges jelenléti/bérszámfejtési időszak lehet;
+    nyers vagy pusztán közzétett beosztási tervből nem készülhet.
+paths: {}
+components:
+  schemas:
+    PayrollPeriodStatus:
+      type: string
+      enum:
+        - Open
+        - UnderReview
+        - Closed
+        - Exported
+    PayrollExportRunStatus:
+      type: string
+      enum:
+        - Pending
+        - Running
+        - Completed
+        - Failed
+        - Cancelled
+    WorkCategory:
+      type: string
+      enum:
+        - Work
+        - Overtime
+        - OnCallDuty
+        - Standby
+        - AnnualLeave
+        - SickLeave
+        - UnpaidLeave
+        - ParentalLeave
+        - Other
+    PremiumTag:
+      type: string
+      enum:
+        - Saturday
+        - Sunday
+        - PublicHoliday
+        - Night
+    PayrollPeriod:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - organizationId
+        - year
+        - month
+        - businessTimeZone
+        - status
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        year:
+          type: integer
+          minimum: 2000
+          maximum: 2200
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+        businessTimeZone:
+          type: string
+          example: Europe/Budapest
+        status:
+          $ref: '#/components/schemas/PayrollPeriodStatus'
+        reviewedAtUtc:
+          type: [string, 'null']
+          format: date-time
+        reviewedByUserId:
+          type: [string, 'null']
+          format: uuid
+        closedAtUtc:
+          type: [string, 'null']
+          format: date-time
+        closedByUserId:
+          type: [string, 'null']
+          format: uuid
+        version:
+          type: integer
+          format: uint32
+    AttendanceEntry:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - payrollPeriodId
+        - employeeId
+        - localDate
+        - source
+        - approvalStatus
+        - workSegments
+      properties:
+        id:
+          type: string
+          format: uuid
+        payrollPeriodId:
+          type: string
+          format: uuid
+        employeeId:
+          type: string
+          format: uuid
+        employeeNumber:
+          type: string
+        localDate:
+          type: string
+          format: date
+        source:
+          type: string
+          description: Tényleges jelenlét vagy jóváhagyott korrekció forrása.
+        approvalStatus:
+          type: string
+          enum:
+            - Draft
+            - Submitted
+            - Approved
+            - Rejected
+        note:
+          type: [string, 'null']
+          maxLength: 1000
+        workSegments:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkSegment'
+    WorkSegment:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - locationId
+        - category
+        - startedAtUtc
+        - endedAtUtc
+        - minutes
+        - premiumTags
+      properties:
+        id:
+          type: string
+          format: uuid
+        locationId:
+          type: string
+          format: uuid
+        category:
+          $ref: '#/components/schemas/WorkCategory'
+        startedAtUtc:
+          type: string
+          format: date-time
+        endedAtUtc:
+          type: string
+          format: date-time
+        minutes:
+          type: integer
+          minimum: 0
+        premiumTags:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/PremiumTag'
+        payrollCode:
+          type: [string, 'null']
+          maxLength: 100
+        note:
+          type: [string, 'null']
+          maxLength: 1000
+    PayrollExportRun:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - organizationId
+        - payrollPeriodId
+        - schemaVersion
+        - format
+        - status
+        - requestedAtUtc
+        - requestedByUserId
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        payrollPeriodId:
+          type: string
+          format: uuid
+        schemaVersion:
+          type: string
+          const: monthly-payroll-export-v1
+        format:
+          type: string
+          enum:
+            - Json
+            - Csv
+        status:
+          $ref: '#/components/schemas/PayrollExportRunStatus'
+        requestedAtUtc:
+          type: string
+          format: date-time
+        requestedByUserId:
+          type: string
+          format: uuid
+        completedAtUtc:
+          type: [string, 'null']
+          format: date-time
+        rowCount:
+          type: [integer, 'null']
+          minimum: 0
+        contentSha256:
+          type: [string, 'null']
+          pattern: '^[0-9a-f]{64}$'
+        failureCode:
+          type: [string, 'null']
+        failureDetail:
+          type: [string, 'null']

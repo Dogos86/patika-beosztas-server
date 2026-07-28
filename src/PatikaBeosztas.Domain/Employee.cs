@@ -50,4 +50,9 @@ public sealed class Employee
 
     public ICollection<EmployeeShiftQuotaRule> ShiftQuotaRules { get; } =
         new List<EmployeeShiftQuotaRule>();
+
+    public EmployeePayrollProfile? PayrollProfile { get; set; }
+
+    public ICollection<TaxAllowanceSurvey> TaxAllowanceSurveys { get; } =
+        new List<TaxAllowanceSurvey>();
 }

@@ -18,8 +18,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="../../contracts/openapi.phase2b.json"
-          Link="contracts/openapi.phase2b.json"
+    <None Include="../../contracts/openapi.phase2d.json"
+          Link="contracts/openapi.phase2d.json"
           CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

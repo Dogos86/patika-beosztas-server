@@ -340,6 +340,49 @@ public static class InputValidation
                 issue.Code == "SHIFT_QUOTA_NEGATIVE" ? "minimum" : "target"))
             .ToArray();
 
+    public static IReadOnlyList<ApiValidationError> ValidatePayrollProfile(
+        string employeeNumber,
+        string taxIdentificationNumber,
+        string? payrollExternalId) =>
+        PayrollOnboardingRules.ValidateProfile(
+                employeeNumber,
+                taxIdentificationNumber,
+                payrollExternalId)
+            .Select(issue => new ApiValidationError(
+                issue.Code,
+                issue.Message,
+                issue.Code switch
+                {
+                    "EMPLOYEE_NUMBER_INVALID" => "employeeNumber",
+                    "TAX_IDENTIFICATION_NUMBER_INVALID" => "taxIdentificationNumber",
+                    _ => "payrollExternalId"
+                }))
+            .ToArray();
+
+    public static IReadOnlyList<ApiValidationError> ValidateTaxAllowanceSurvey(
+        TaxAllowanceSurvey survey) =>
+        TaxAllowanceSurveyRules.Validate(survey)
+            .Select(issue => new ApiValidationError(
+                issue.Code,
+                issue.Message,
+                issue.Code switch
+                {
+                    "TAX_SURVEY_YEAR_NOT_SUPPORTED" => "taxYear",
+                    "TAX_SURVEY_EFFECTIVE_DATE_INVALID" => "effectiveFrom",
+                    "FAMILY_ELIGIBLE_CHILD_COUNT_INVALID" =>
+                        "answers.familyAllowanceEligibleChildrenCount",
+                    "DEPENDENT_STUDENT_COUNT_INVALID" =>
+                        "answers.dependentStudentCount",
+                    "FETUS_ELIGIBILITY_MONTH_INVALID" or
+                        "FETUS_ELIGIBILITY_MONTH_NOT_APPLICABLE" =>
+                        "answers.fetusEligibilityMonth",
+                    "PERSONAL_ALLOWANCE_START_MONTH_INVALID" or
+                        "PERSONAL_ALLOWANCE_START_MONTH_NOT_APPLICABLE" =>
+                        "answers.personalAllowanceStartMonth",
+                    _ => "hrPayrollNote"
+                }))
+            .ToArray();
+
     private static string WorkProfileField(string code) =>
         code switch
         {

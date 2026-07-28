@@ -71,3 +71,17 @@ scope-ot, a bemeneti snapshot stabil referenciáját, az idempotency-referenciá
 alternatív jelöltek listája érzékeny dolgozói adat: csak a szükséges admin
 jogosultsággal és szervezeti határon belül kérdezhető le, teljes tartalma nem
 kerül általános alkalmazásnaplóba.
+
+## Phase 2D payroll-adatvédelem
+
+Az adóazonosítót ASP.NET Core Data Protection titkosítja, a tenanton belüli
+duplikációt secret kulcsos HMAC-SHA-256 lenyomat ellenőrzi. A summary/lista
+mindig maszkol, teljes értéket kizárólag külön
+`ViewPayrollSensitiveData` permissionnel ad a profil részletes végpontja.
+Nyers adóazonosító és lenyomat nem kerül auditösszefoglalóba vagy exportba.
+
+Auditált a profil, onboarding summary, belső survey és
+nyilatkozat-checklist megtekintése; továbbá minden mutáció, kézi felülírás,
+státuszváltás, lezárás és JSON/CSV export. A survey csak jelzőt tárolhat a
+személyi kedvezményhez és érintett eltartotthoz: diagnózis, betegségnév,
+orvosi dokumentum és feltöltés nincs a public contractban.

@@ -193,3 +193,36 @@ továbbra is válasz kell legalább ezekre:
 - felhasználói provisioning/deprovisioning;
 - vészhelyzeti admin hozzáférés;
 - session megőrzési és visszavonási követelmények.
+
+## Phase 2D HR/bérszámfejtés
+
+### P2D-001 – Érzékeny payroll-adatok megőrzése
+
+Jogi és bérszámfejtési egyeztetéssel rögzíteni kell az aktív és archivált
+payroll profilok, belső felmérések, hivatalos nyilatkozat-checklistek és
+hozzáférési auditok megőrzési/törlési idejét. Addig a Phase 2D nem végez
+automatikus törlést.
+
+### P2D-002 – Kulcsrotáció és rehash
+
+Production deployment előtt ki kell választani a tartós, hozzáférés-védett
+ASP.NET Core Data Protection kulcstárat, annak backupját és rotációját.
+Rögzíteni kell a `SensitiveData__TaxIdentifierHashKey` secret rotációs
+eljárását is: a determinisztikus lenyomat kulcsváltása kontrollált rehash
+folyamatot igényel, amelyhez a titkosított értékek visszafejthetőségének
+folyamatosan meg kell maradnia.
+
+### P2D-003 – Éves szabálycsomag szakmai jóváhagyása
+
+A `HU-2026.1` motor csak belső checklist-javaslatot ad. Production használat
+előtt HR/bérszámfejtői vagy adószakértői jóváhagyás kell a hatálydátumokra,
+életkori küszöbökre, ANYACSKA-kombinációra és a hivatalos nyilatkozatok
+aktuális elnevezésére. Új adóév külön form- és ruleset-verziót igényel.
+
+### P2D-004 – Onboarding lezárási minimum
+
+A Phase 2D konzervatív runtime kapuja csak befejezett survey és minden
+szükséges nyilatkozat `Applied` státusza után engedi a payroll profil
+`Complete` állapotát. Dönteni kell, hogy productionben további
+munkaprofil-, telephely-, dokumentum- vagy fióklépés is kötelező feltétel-e,
+illetve mely elemek lehetnek szervezetenként opcionálisak.

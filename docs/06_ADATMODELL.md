@@ -254,3 +254,19 @@ LeaveStatusHistory–LeaveRequest/User, továbbá a LocationWeeklyOpening–Loca
 OpeningInterval–LocationWeeklyOpening, LocationShiftTemplate–Location,
 CoverageRequirement–Location, EmployeeCapability–Employee,
 EmployeeWorkProfile–Employee és EmployeeShiftQuotaRule–Employee kapcsolatoknál.
+
+## Phase 2D payroll aggregate-ek
+
+Az `EmployeePayrollProfile` dolgozónként legfeljebb egy, szervezethez kötött
+rekord. Az adóazonosító titkosított értéke és HMAC-alapú determinisztikus
+lenyomata kizárólag a profil táblában van; az API és az audit nem tárolja
+nyersen.
+
+A `TaxAllowanceSurvey` egyedi kulcsa
+`OrganizationId + EmployeeId + TaxYear + FormVersion`. A kérdőív
+`RuleSetVersion`, `EffectiveFrom`, `EffectiveTo` és `SourceMetadata` értékeket
+is tárol, így a checklist reprodukálható. A
+`TaxDeclarationRequirement` ugyanazon tenanton belül kompozit FK-val
+kapcsolódik az Employee és Survey rekordhoz, típusa survey-nként egyedi.
+Mindhárom szerkeszthető entitás PostgreSQL `xmin` konkurenciavezérlést és
+actor/időpont auditmezőket használ.

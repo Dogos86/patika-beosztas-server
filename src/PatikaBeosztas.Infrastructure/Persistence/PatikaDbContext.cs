@@ -46,6 +46,15 @@ public sealed class PatikaDbContext(
     public DbSet<EmployeeShiftQuotaRule> EmployeeShiftQuotaRules =>
         Set<EmployeeShiftQuotaRule>();
 
+    public DbSet<EmployeePayrollProfile> EmployeePayrollProfiles =>
+        Set<EmployeePayrollProfile>();
+
+    public DbSet<TaxAllowanceSurvey> TaxAllowanceSurveys =>
+        Set<TaxAllowanceSurvey>();
+
+    public DbSet<TaxDeclarationRequirement> TaxDeclarationRequirements =>
+        Set<TaxDeclarationRequirement>();
+
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
@@ -63,6 +72,7 @@ public sealed class PatikaDbContext(
         ConfigureLeaveRequests(builder);
         ConfigureLocationPlanning(builder);
         ConfigureEmployeePlanning(builder);
+        ConfigurePayrollOnboarding(builder);
         ConfigurePermissions(builder);
         ConfigureAudit(builder);
     }
@@ -611,6 +621,288 @@ public sealed class PatikaDbContext(
                 })
                 .HasPrincipalKey(employee => new { employee.OrganizationId, employee.Id })
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigurePayrollOnboarding(ModelBuilder builder)
+    {
+        builder.Entity<EmployeePayrollProfile>(entity =>
+        {
+            entity.ToTable("EmployeePayrollProfiles");
+            entity.HasKey(profile => profile.Id);
+            entity.Property(profile => profile.EmployeeNumber).HasMaxLength(50);
+            entity.Property(profile => profile.TaxIdentificationNumberCiphertext)
+                .HasMaxLength(2000);
+            entity.Property(profile => profile.TaxIdentificationNumberHash)
+                .HasMaxLength(64);
+            entity.Property(profile => profile.PayrollExternalId).HasMaxLength(100);
+            entity.Property(profile => profile.Status)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(profile => profile.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin");
+            entity.HasAlternateKey(profile => new { profile.OrganizationId, profile.Id });
+            entity.HasIndex(profile => new { profile.OrganizationId, profile.EmployeeId })
+                .IsUnique();
+            entity.HasIndex(profile => new
+            {
+                profile.OrganizationId,
+                profile.EmployeeNumber
+            }).IsUnique();
+            entity.HasIndex(profile => new
+            {
+                profile.OrganizationId,
+                profile.TaxIdentificationNumberHash
+            }).IsUnique();
+            entity.HasIndex(profile => new
+            {
+                profile.OrganizationId,
+                profile.Status
+            });
+            entity.HasOne(profile => profile.Employee)
+                .WithOne(employee => employee.PayrollProfile)
+                .HasForeignKey<EmployeePayrollProfile>(profile => new
+                {
+                    profile.OrganizationId,
+                    profile.EmployeeId
+                })
+                .HasPrincipalKey<Employee>(employee => new
+                {
+                    employee.OrganizationId,
+                    employee.Id
+                })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(profile => new
+                {
+                    profile.OrganizationId,
+                    profile.CreatedByUserId
+                })
+                .HasPrincipalKey(user => new { user.OrganizationId, user.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(profile => new
+                {
+                    profile.OrganizationId,
+                    profile.UpdatedByUserId
+                })
+                .HasPrincipalKey(user => new { user.OrganizationId, user.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<TaxAllowanceSurvey>(entity =>
+        {
+            entity.ToTable("TaxAllowanceSurveys");
+            entity.HasKey(survey => survey.Id);
+            entity.Property(survey => survey.FormVersion).HasMaxLength(50);
+            entity.Property(survey => survey.RuleSetVersion).HasMaxLength(50);
+            entity.Property(survey => survey.SourceMetadata).HasMaxLength(500);
+            entity.Property(survey => survey.Status)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(survey => survey.MonthlyAllowancePreference)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(survey => survey.MaritalStatus)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(survey => survey.FirstMarriageStatus)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+            entity.Property(survey => survey.FamilyAllowanceClaimMode)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(survey => survey.OtherEligiblePersonClaimsPart)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+            entity.Property(survey => survey.MotherAllowanceQualifyingChildrenCount)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(survey => survey.HasCurrentOwnChildOrFetusEligibleForFamilyAllowance)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+            entity.Property(survey => survey.PersonalAllowanceEligibility)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+            entity.Property(survey => survey.HasOtherEmployerOrRegularPayer)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+            entity.Property(survey => survey.Under25AllowanceOptOut)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(survey => survey.ForeignTaxResidencyOrSimilarForeignBenefit)
+                .HasConversion<string>()
+                .HasMaxLength(40);
+            entity.Property(survey => survey.FetusEligibilityMonth).HasMaxLength(7);
+            entity.Property(survey => survey.PersonalAllowanceStartMonth).HasMaxLength(7);
+            entity.Property(survey => survey.HrPayrollNote).HasMaxLength(1000);
+            entity.Property(survey => survey.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin");
+            entity.HasAlternateKey(survey => new
+            {
+                survey.OrganizationId,
+                survey.Id
+            });
+            entity.HasAlternateKey(survey => new
+            {
+                survey.OrganizationId,
+                survey.EmployeeId,
+                survey.Id
+            });
+            entity.HasIndex(survey => new
+            {
+                survey.OrganizationId,
+                survey.EmployeeId,
+                survey.TaxYear,
+                survey.FormVersion
+            }).IsUnique();
+            entity.HasIndex(survey => new
+            {
+                survey.OrganizationId,
+                survey.EmployeeId,
+                survey.TaxYear,
+                survey.Status
+            });
+            entity.HasIndex(survey => new
+            {
+                survey.OrganizationId,
+                survey.Status
+            });
+            entity.HasOne(survey => survey.Employee)
+                .WithMany(employee => employee.TaxAllowanceSurveys)
+                .HasForeignKey(survey => new
+                {
+                    survey.OrganizationId,
+                    survey.EmployeeId
+                })
+                .HasPrincipalKey(employee => new { employee.OrganizationId, employee.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(survey => new
+                {
+                    survey.OrganizationId,
+                    survey.CreatedByUserId
+                })
+                .HasPrincipalKey(user => new { user.OrganizationId, user.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(survey => new
+                {
+                    survey.OrganizationId,
+                    survey.UpdatedByUserId
+                })
+                .HasPrincipalKey(user => new { user.OrganizationId, user.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(survey => new
+                {
+                    survey.OrganizationId,
+                    survey.DeclaredByUserId
+                })
+                .HasPrincipalKey(user => new { user.OrganizationId, user.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(survey => new
+                {
+                    survey.OrganizationId,
+                    survey.ReviewedByUserId
+                })
+                .HasPrincipalKey(user => new { user.OrganizationId, user.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<TaxDeclarationRequirement>(entity =>
+        {
+            entity.ToTable("TaxDeclarationRequirements");
+            entity.HasKey(requirement => requirement.Id);
+            entity.Property(requirement => requirement.Type)
+                .HasConversion<string>()
+                .HasMaxLength(40);
+            entity.Property(requirement => requirement.Status)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(requirement => requirement.Notes).HasMaxLength(1000);
+            entity.Property(requirement => requirement.GeneratedByRuleVersion)
+                .HasMaxLength(50);
+            entity.Property(requirement => requirement.ManualOverrideReason)
+                .HasMaxLength(1000);
+            entity.Property(requirement => requirement.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin");
+            entity.HasAlternateKey(requirement => new
+            {
+                requirement.OrganizationId,
+                requirement.Id
+            });
+            entity.HasIndex(requirement => new
+            {
+                requirement.OrganizationId,
+                requirement.EmployeeId,
+                requirement.SurveyId,
+                requirement.Type
+            }).IsUnique();
+            entity.HasIndex(requirement => new
+            {
+                requirement.OrganizationId,
+                requirement.EmployeeId,
+                requirement.Status
+            });
+            entity.HasIndex(requirement => new
+            {
+                requirement.OrganizationId,
+                requirement.SurveyId,
+                requirement.Status
+            });
+            entity.HasOne(requirement => requirement.Employee)
+                .WithMany()
+                .HasForeignKey(requirement => new
+                {
+                    requirement.OrganizationId,
+                    requirement.EmployeeId
+                })
+                .HasPrincipalKey(employee => new { employee.OrganizationId, employee.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(requirement => requirement.Survey)
+                .WithMany(survey => survey.DeclarationRequirements)
+                .HasForeignKey(requirement => new
+                {
+                    requirement.OrganizationId,
+                    requirement.EmployeeId,
+                    requirement.SurveyId
+                })
+                .HasPrincipalKey(survey => new
+                {
+                    survey.OrganizationId,
+                    survey.EmployeeId,
+                    survey.Id
+                })
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(requirement => new
+                {
+                    requirement.OrganizationId,
+                    requirement.CreatedByUserId
+                })
+                .HasPrincipalKey(user => new { user.OrganizationId, user.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(requirement => new
+                {
+                    requirement.OrganizationId,
+                    requirement.UpdatedByUserId
+                })
+                .HasPrincipalKey(user => new { user.OrganizationId, user.Id })
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

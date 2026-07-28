@@ -9,12 +9,12 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $expectedTitle = "Patika Beoszt$([char]0x00E1)s API"
-$expectedVersion = "0.3.0-phase2b"
+$expectedVersion = "0.4.0-phase2d"
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $envFile = Join-Path $repositoryRoot ".env"
 $apiProject = Join-Path $repositoryRoot "src/PatikaBeosztas.Api/PatikaBeosztas.Api.csproj"
 $apiAssembly = Join-Path $repositoryRoot "src/PatikaBeosztas.Api/bin/Release/net10.0/PatikaBeosztas.Api.dll"
-$outputPath = Join-Path $repositoryRoot "contracts/openapi.phase2b.json"
+$outputPath = Join-Path $repositoryRoot "contracts/openapi.phase2d.json"
 $openApiUri = [uri]::new($ApiBaseUri, "/openapi/v1.json")
 $startedApiProcess = $null
 
@@ -139,7 +139,14 @@ function Assert-OpenApiDocument {
         "/api/admin/coverage-requirements",
         "/api/admin/employees/{employeeId}/capabilities",
         "/api/admin/employees/{employeeId}/work-profile",
-        "/api/admin/employees/{employeeId}/shift-quota-rules"
+        "/api/admin/employees/{employeeId}/shift-quota-rules",
+        "/api/me/payroll-onboarding",
+        "/api/me/tax-allowance-surveys",
+        "/api/admin/employees/{employeeId}/payroll-profile",
+        "/api/admin/employees/{employeeId}/payroll-onboarding",
+        "/api/admin/employees/{employeeId}/payroll-onboarding/export",
+        "/api/admin/tax-allowance-surveys/{id}/review",
+        "/api/admin/employees/{employeeId}/tax-declaration-requirements"
     )
     $availablePaths = $document.paths.PSObject.Properties.Name
     foreach ($path in $requiredPaths) {
@@ -165,7 +172,18 @@ function Assert-OpenApiDocument {
         "CoverageSeverity",
         "ShiftQuotaDimension",
         "QuotaPeriod",
-        "QuotaSeverity"
+        "QuotaSeverity",
+        "EmployeePayrollProfileStatus",
+        "TaxAllowanceSurveyStatus",
+        "MonthlyAllowancePreference",
+        "MaritalStatus",
+        "SurveyAnswer",
+        "MotherAllowanceQualifyingChildrenCount",
+        "FamilyAllowanceClaimMode",
+        "Under25AllowanceOptOut",
+        "ForeignTaxResidencyOrSimilarForeignBenefit",
+        "TaxDeclarationType",
+        "TaxDeclarationRequirementStatus"
     )
     foreach ($schemaName in $requiredStringEnums) {
         $schemaProperty = $document.components.schemas.PSObject.Properties[$schemaName]
@@ -195,7 +213,8 @@ try {
     catch {
         $requiredEnvironmentValues = @(
             "ConnectionStrings__DefaultConnection",
-            "Seed__DemoPassword"
+            "Seed__DemoPassword",
+            "SensitiveData__TaxIdentifierHashKey"
         )
         if (Test-Path -LiteralPath $envFile -PathType Leaf) {
             $requiredEnvironmentValues += @(
@@ -302,7 +321,7 @@ try {
     }
 
     $hash = (Get-FileHash -LiteralPath $outputPath -Algorithm SHA256).Hash.ToLowerInvariant()
-    Write-Host "Runtime OpenAPI export elkészült: contracts/openapi.phase2b.json"
+    Write-Host "Runtime OpenAPI export elkészült: contracts/openapi.phase2d.json"
     Write-Host "SHA256: $hash"
 }
 finally {

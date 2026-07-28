@@ -42,15 +42,28 @@ builder.Services.AddOpenApi(options =>
         nameof(CoverageSeverity),
         nameof(ShiftQuotaDimension),
         nameof(QuotaPeriod),
-        nameof(QuotaSeverity)
+        nameof(QuotaSeverity),
+        nameof(EmployeePayrollProfileStatus),
+        nameof(TaxAllowanceSurveyStatus),
+        nameof(MonthlyAllowancePreference),
+        nameof(MaritalStatus),
+        nameof(SurveyAnswer),
+        nameof(MotherAllowanceQualifyingChildrenCount),
+        nameof(FamilyAllowanceClaimMode),
+        nameof(Under25AllowanceOptOut),
+        nameof(ForeignTaxResidencyOrSimilarForeignBenefit),
+        nameof(TaxDeclarationType),
+        nameof(TaxDeclarationRequirementStatus)
     };
     options.AddDocumentTransformer((document, _, _) =>
     {
         document.Info.Title = "Patika Beosztás API";
-        document.Info.Version = "0.3.0-phase2b";
+        document.Info.Version = "0.4.0-phase2d";
         document.Info.Description =
             "Szervezethez kötött, cookie-authentikált gyógyszertári adminisztrációs, " +
-            "munkapreferencia-, távollét-, nyitvatartás-, lefedettség- és munkaprofil-kezelő API; " +
+            "munkapreferencia-, távollét-, nyitvatartás-, lefedettség-, munkaprofil- és " +
+            "belső HR/bérszámfejtési belépéskezelő API; az adókedvezmény-felmérő nem hivatalos " +
+            "NAV-nyilatkozat, nem számol adót és nem állapít meg végleges jogosultságot; " +
             "a frontend HTTPS-en, az API-val azonos site alatt, credentials: include beállítással hívja; " +
             "a mutációkhoz CSRF-token és az optimista konkurenciát használó kéréseknél verzió szükséges.";
         document.Components ??= new OpenApiComponents();
@@ -245,6 +258,8 @@ app.MapCoverageRequirementEndpoints();
 app.MapEmployeeCapabilityEndpoints();
 app.MapEmployeeWorkProfileEndpoints();
 app.MapEmployeeShiftQuotaRuleEndpoints();
+app.MapPayrollOnboardingEndpoints();
+app.MapTaxAllowanceSurveyEndpoints();
 
 await app.Services.InitializeDevelopmentDatabaseAsync(
     app.Environment,

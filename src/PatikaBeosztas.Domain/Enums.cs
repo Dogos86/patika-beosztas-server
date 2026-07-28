@@ -155,5 +155,111 @@ public enum ApplicationPermission
     ManageSchedules,
     RunAutoFill,
     UseAiAssistant,
-    ManageUsers
+    ManageUsers,
+    ManagePayrollOnboarding,
+    ViewPayrollSensitiveData,
+    ReviewTaxAllowanceSurvey,
+    ExportPayrollData
+}
+
+public enum EmployeePayrollProfileStatus
+{
+    Draft,
+    UnderReview,
+    Complete,
+    Archived
+}
+
+public enum TaxAllowanceSurveyStatus
+{
+    Draft,
+    Submitted,
+    NeedsClarification,
+    Reviewed,
+    Completed,
+    Cancelled
+}
+
+public enum MonthlyAllowancePreference
+{
+    ApplyMonthly,
+    AnnualReturnOnly,
+    NeedsConsultation
+}
+
+[SuppressMessage(
+    "Naming",
+    "CA1720:Identifier contains type name",
+    Justification = "Single is the explicit public marital-status value required by the survey contract.")]
+public enum MaritalStatus
+{
+    Single,
+    Married,
+    Partnership,
+    Divorced,
+    Widowed,
+    Other
+}
+
+public enum SurveyAnswer
+{
+    Yes,
+    No,
+    Unknown
+}
+
+public enum MotherAllowanceQualifyingChildrenCount
+{
+    None,
+    One,
+    Two,
+    Three,
+    FourPlus,
+    Unknown
+}
+
+public enum FamilyAllowanceClaimMode
+{
+    NotRequested,
+    Alone,
+    Shared,
+    Undecided
+}
+
+public enum Under25AllowanceOptOut
+{
+    No,
+    Yes,
+    NeedsConsultation
+}
+
+public enum ForeignTaxResidencyOrSimilarForeignBenefit
+{
+    None,
+    PresentNeedsConsultation
+}
+
+public enum TaxDeclarationType
+{
+    Under25OptOut,
+    Under30Mother,
+    Anyacska,
+    MultiChildMotherAllowance,
+    FamilyAllowance,
+    FirstMarriage,
+    PersonalAllowance
+}
+
+public enum TaxDeclarationRequirementStatus
+{
+    NotRequired,
+    Required,
+    ToSend,
+    Sent,
+    ReceivedOnya,
+    ReceivedPaper,
+    Verified,
+    Applied,
+    Rejected,
+    Expired
 }

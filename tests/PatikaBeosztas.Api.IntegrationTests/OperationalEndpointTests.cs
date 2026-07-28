@@ -28,7 +28,7 @@ public sealed class OperationalEndpointTests
     }
 
     [TestMethod]
-    public async Task OpenApiDocumentsPhase2BEndpointsContractsAndCookieSecurity()
+    public async Task OpenApiDocumentsPhase2DEndpointsContractsAndCookieSecurity()
     {
         await using var application = new ApiFactory(UnusedConnectionString);
         using var client = application.CreateHttpsClient();
@@ -109,8 +109,33 @@ public sealed class OperationalEndpointTests
             Assert.IsTrue(paths.TryGetProperty(path, out _), $"Hiányzó OpenAPI útvonal: {path}");
         }
 
+        var phase2DPaths = new[]
+        {
+            "/api/me/payroll-onboarding",
+            "/api/me/tax-allowance-surveys",
+            "/api/me/tax-allowance-surveys/{taxYear}",
+            "/api/me/tax-allowance-surveys/{id}",
+            "/api/me/tax-allowance-surveys/{id}/submit",
+            "/api/admin/employees/{employeeId}/payroll-onboarding",
+            "/api/admin/employees/{employeeId}/payroll-onboarding/complete",
+            "/api/admin/employees/{employeeId}/payroll-onboarding/export",
+            "/api/admin/employees/{employeeId}/payroll-profile",
+            "/api/admin/employees/{employeeId}/tax-allowance-surveys/{taxYear}",
+            "/api/admin/tax-allowance-surveys/{id}/submit",
+            "/api/admin/tax-allowance-surveys/{id}/reopen",
+            "/api/admin/tax-allowance-surveys/{id}/review",
+            "/api/admin/tax-allowance-surveys/{id}/complete",
+            "/api/admin/employees/{employeeId}/tax-declaration-requirements",
+            "/api/admin/tax-declaration-requirements/{id}/status",
+            "/api/admin/tax-declaration-requirements/{id}/override"
+        };
+        foreach (var path in phase2DPaths)
+        {
+            Assert.IsTrue(paths.TryGetProperty(path, out _), $"Hiányzó OpenAPI útvonal: {path}");
+        }
+
         Assert.AreEqual(
-            "0.3.0-phase2b",
+            "0.4.0-phase2d",
             root.GetProperty("info").GetProperty("version").GetString());
         Assert.AreEqual(
             "__Host-PatikaSession",
@@ -184,7 +209,18 @@ public sealed class OperationalEndpointTests
             typeof(CoverageSeverity),
             typeof(ShiftQuotaDimension),
             typeof(QuotaPeriod),
-            typeof(QuotaSeverity)
+            typeof(QuotaSeverity),
+            typeof(EmployeePayrollProfileStatus),
+            typeof(TaxAllowanceSurveyStatus),
+            typeof(MonthlyAllowancePreference),
+            typeof(MaritalStatus),
+            typeof(SurveyAnswer),
+            typeof(MotherAllowanceQualifyingChildrenCount),
+            typeof(FamilyAllowanceClaimMode),
+            typeof(Under25AllowanceOptOut),
+            typeof(ForeignTaxResidencyOrSimilarForeignBenefit),
+            typeof(TaxDeclarationType),
+            typeof(TaxDeclarationRequirementStatus)
         };
         foreach (var enumType in publicEnumTypes)
         {
@@ -224,7 +260,7 @@ public sealed class OperationalEndpointTests
         var canonicalPath = Path.Combine(
             AppContext.BaseDirectory,
             "contracts",
-            "openapi.phase2b.json");
+            "openapi.phase2d.json");
         Assert.IsTrue(File.Exists(canonicalPath), "Hiányzik a kanonikus runtime OpenAPI export.");
         var runtimeOpenApi = JsonNode.Parse(body);
         var canonicalOpenApi = JsonNode.Parse(await File.ReadAllTextAsync(canonicalPath));

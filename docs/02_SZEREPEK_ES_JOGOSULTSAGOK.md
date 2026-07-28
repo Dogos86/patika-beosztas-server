@@ -38,6 +38,14 @@ A Phase 2B runtime-ban a heti nyitvatartás és a műszaksablonok kezelése
 permissiont igényel. Ezek a permissionök továbbra sem következnek a dolgozó
 `ProfessionalRole` értékéből.
 
+A Phase 2D négy, a beosztási jogoktól független payroll permissiont vezet be:
+`ManagePayrollOnboarding`, `ViewPayrollSensitiveData`,
+`ReviewTaxAllowanceSurvey` és `ExportPayrollData`. A profil részletes
+adóazonosítója csak az első és a második permission együttes meglétekor
+olvasható; az onboarding summary mindig maszkolt értéket ad. A survey admin
+olvasása/review-ja `ReviewTaxAllowanceSurvey`, az export
+`ExportPayrollData` policyhez kötött.
+
 ### Professional roles
 - PharmacyManager
 - Pharmacist

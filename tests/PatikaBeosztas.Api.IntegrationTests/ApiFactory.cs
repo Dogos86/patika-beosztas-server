@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +36,9 @@ internal sealed class ApiFactory(string connectionString) : WebApplicationFactor
     {
         builder.UseEnvironment("Testing");
         builder.ConfigureLogging(logging => logging.ClearProviders());
+        builder.ConfigureServices(services =>
+            services.AddSingleton<IDataProtectionProvider>(
+                new EphemeralDataProtectionProvider()));
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             configuration.AddInMemoryCollection(
@@ -42,7 +46,9 @@ internal sealed class ApiFactory(string connectionString) : WebApplicationFactor
                 {
                     ["ConnectionStrings:DefaultConnection"] = connectionString,
                     ["Seed:Enabled"] = "false",
-                    ["Cors:AllowedOrigins:0"] = "https://localhost:5173"
+                    ["Cors:AllowedOrigins:0"] = "https://localhost:5173",
+                    ["SensitiveData:TaxIdentifierHashKey"] =
+                        "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
                 });
         });
     }
@@ -212,7 +218,11 @@ internal static class IntegrationTestData
                 ApplicationPermission.ManageAllLeaveRequests,
                 ApplicationPermission.ApproveLeaveRequests,
                 ApplicationPermission.RecordLeaveForOthers,
-                ApplicationPermission.ViewOwnSchedule
+                ApplicationPermission.ViewOwnSchedule,
+                ApplicationPermission.ManagePayrollOnboarding,
+                ApplicationPermission.ViewPayrollSensitiveData,
+                ApplicationPermission.ReviewTaxAllowanceSurvey,
+                ApplicationPermission.ExportPayrollData
             ],
             now);
         await CreateUserAsync(

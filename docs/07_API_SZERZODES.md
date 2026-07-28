@@ -63,6 +63,21 @@ Az auth session a user/szervezet azonosítók mellett a szervezet nevét és
 időzóna-azonosítóját, a pontos permission listát és az opcionális kapcsolt
 dolgozót adja. Összefoglaló `admin` role nincs.
 
+## Phase 2D HR/bérszámfejtési runtime
+
+A saját dolgozó a `/api/me/payroll-onboarding` és
+`/api/me/tax-allowance-surveys` útvonalakat használja. Ezek requestje nem
+tartalmaz `employeeId`-t. Az admin payroll profil, onboarding summary, survey,
+workflow, nyilatkozat-checklist és belépési export útvonalai külön
+`ManagePayrollOnboarding`, `ViewPayrollSensitiveData`,
+`ReviewTaxAllowanceSurvey` és `ExportPayrollData` policyket használnak.
+
+A profil, survey és checklist mutációi `X-CSRF-TOKEN` headert és
+`expectedVersion` mezőt kérnek. A teljes adóazonosító kizárólag a profil
+részletes válaszában, külön érzékenyadat-permissionnel jelenhet meg; summaryban
+mindig maszkolt. Az export `format=json|csv`, vendor-neutral v1 szerződés, és
+nem tartalmaz adóazonosítót.
+
 ## Beosztás
 
 A beosztási API generálás-központú; nem egy teljes kézi műszak-CRUD felületre
@@ -82,7 +97,7 @@ elkülönítenie:
 
 Az alkalmazási műveletek pontos útvonalai a Phase 3 implementációval együtt
 kerülnek a futó OpenAPI-ba. A `contracts/api-contract-draft.yaml` jelenleg az
-implementált Phase 2B felület szerződése; jövőbeli útvonalat nem szabad
+implementált Phase 2D felület egyeztetési vázlata; jövőbeli útvonalat nem szabad
 implementáltként feltüntetnie.
 
 A Phase 2B jövőbeli könyvelési szerződése a `WorkPremiumTag`, `PayrollCode` és
@@ -164,3 +179,13 @@ runtime API címét, `0.3.0-phase2b` verzióját és a megvalósított modulok
 útvonalait, valamint a publikus enumok string reprezentációját, majd a kapott
 JSON-választ változtatás nélküli contractként menti. A fájlt kézzel nem szabad
 szerkeszteni; a draft YAML továbbra is egyeztetési vázlat.
+
+## Phase 2D runtime átadás
+
+A frontend aktuális kanonikus bemenete a tényleges
+`GET /openapi/v1.json` válaszból exportált
+`contracts/openapi.phase2d.json`. Az `eng/export-openapi.ps1` a
+`0.4.0-phase2d` verziót, a payroll útvonalakat és a kapcsolódó string enumokat
+is validálja. A `contracts/monthly-payroll-export-v1-draft.yaml` nem runtime
+API: a későbbi, lezárt tényleges jelenléten alapuló havi export szerződésének
+tervezete.
