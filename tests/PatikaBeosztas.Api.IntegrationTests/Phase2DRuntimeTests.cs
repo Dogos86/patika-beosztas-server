@@ -431,14 +431,14 @@ public sealed class Phase2DRuntimeTests
     }
 
     [TestMethod]
-    public async Task RuntimeOpenApiContainsOnlyImplementedPhase2DEndpointsAndNoMedicalFields()
+    public async Task RuntimeOpenApiRetainsPhase2DEndpointsAndNoMedicalFields()
     {
         using var response = await client.GetAsync("/openapi/v1.json");
         var raw = await response.Content.ReadAsStringAsync();
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var document = JsonDocument.Parse(raw);
         Assert.AreEqual(
-            "0.4.0-phase2d",
+            "0.5.0-phase3a",
             document.RootElement
                 .GetProperty("info")
                 .GetProperty("version")

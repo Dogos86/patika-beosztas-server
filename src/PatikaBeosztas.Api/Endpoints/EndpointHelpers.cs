@@ -86,6 +86,10 @@ internal static class EndpointHelpers
             .WithMetadata(AntiforgeryRequiredMetadata.Instance)
             .AddEndpointFilter<AntiforgeryEndpointFilter>()
             .Produces<ProblemDetails>(StatusCodes.Status400BadRequest);
+
+    public static RouteHandlerBuilder RequireIdempotencyKey(
+        this RouteHandlerBuilder builder) =>
+        builder.WithMetadata(IdempotencyKeyRequiredMetadata.Instance);
 }
 
 internal sealed class AntiforgeryRequiredMetadata
@@ -93,6 +97,15 @@ internal sealed class AntiforgeryRequiredMetadata
     public static AntiforgeryRequiredMetadata Instance { get; } = new();
 
     private AntiforgeryRequiredMetadata()
+    {
+    }
+}
+
+internal sealed class IdempotencyKeyRequiredMetadata
+{
+    public static IdempotencyKeyRequiredMetadata Instance { get; } = new();
+
+    private IdempotencyKeyRequiredMetadata()
     {
     }
 }

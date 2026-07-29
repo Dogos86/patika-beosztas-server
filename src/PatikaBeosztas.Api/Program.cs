@@ -2,7 +2,9 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi;
 using PatikaBeosztas.Api.Endpoints;
 using PatikaBeosztas.Api.Security;
@@ -12,6 +14,7 @@ using PatikaBeosztas.Infrastructure;
 using PatikaBeosztas.Infrastructure.Identity;
 using PatikaBeosztas.Infrastructure.Persistence;
 using PatikaBeosztas.Infrastructure.Security;
+using PatikaBeosztas.Infrastructure.Scheduling;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,19 +56,30 @@ builder.Services.AddOpenApi(options =>
         nameof(Under25AllowanceOptOut),
         nameof(ForeignTaxResidencyOrSimilarForeignBenefit),
         nameof(TaxDeclarationType),
-        nameof(TaxDeclarationRequirementStatus)
+        nameof(TaxDeclarationRequirementStatus),
+        nameof(ScheduleStatus),
+        nameof(ScheduleGenerationStatus),
+        nameof(ScheduleSolverStatus),
+        nameof(ShiftAssignmentSource),
+        nameof(ShiftChangeKind),
+        nameof(ScheduleIssueSeverity),
+        nameof(SuggestionExclusionScope),
+        nameof(PendingLeaveHandlingMode),
+        nameof(RegenerationScopeType)
     };
     options.AddDocumentTransformer((document, _, _) =>
     {
         document.Info.Title = "Patika Beosztás API";
-        document.Info.Version = "0.4.0-phase2d";
+        document.Info.Version = "0.5.0-phase3a";
         document.Info.Description =
             "Szervezethez kötött, cookie-authentikált gyógyszertári adminisztrációs, " +
-            "munkapreferencia-, távollét-, nyitvatartás-, lefedettség-, munkaprofil- és " +
-            "belső HR/bérszámfejtési belépéskezelő API; az adókedvezmény-felmérő nem hivatalos " +
-            "NAV-nyilatkozat, nem számol adót és nem állapít meg végleges jogosultságot; " +
-            "a frontend HTTPS-en, az API-val azonos site alatt, credentials: include beállítással hívja; " +
-            "a mutációkhoz CSRF-token és az optimista konkurenciát használó kéréseknél verzió szükséges.";
+            "munkapreferencia-, távollét-, nyitvatartás-, lefedettség-, munkaprofil-, " +
+            "beosztásgenerálási és közzétételi API. A háttérben futó beosztásgenerálás " +
+            "reprodukálható snapshotot, OR-Tools CP-SAT optimalizálást és tartós run állapotot használ. " +
+            "A belső HR/bérszámfejtési adókedvezmény-felmérő nem hivatalos NAV-nyilatkozat, " +
+            "nem számol adót és nem állapít meg végleges jogosultságot. A frontend HTTPS-en, " +
+            "az API-val azonos site alatt, credentials: include beállítással hívja; a mutációkhoz " +
+            "CSRF-token, az optimista konkurenciát használó kéréseknél verzió szükséges.";
         document.Components ??= new OpenApiComponents();
         document.Components.SecuritySchemes ??=
             new Dictionary<string, IOpenApiSecurityScheme>();
@@ -117,6 +131,25 @@ builder.Services.AddOpenApi(options =>
             });
         }
 
+        if (metadata.OfType<IdempotencyKeyRequiredMetadata>().Any())
+        {
+            operation.Parameters ??= [];
+            operation.Parameters.Add(new OpenApiParameter
+            {
+                Name = "Idempotency-Key",
+                In = ParameterLocation.Header,
+                Required = true,
+                Description =
+                    "8–200 karakteres, kliens által generált kulcs az ismételt írás biztonságos felismeréséhez.",
+                Schema = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.String,
+                    MinLength = 8,
+                    MaxLength = 200
+                }
+            });
+        }
+
         var authorization = metadata
             .OfType<IAuthorizeData>()
             .ToArray();
@@ -145,6 +178,21 @@ builder.Services.AddOpenApi(options =>
     });
 });
 builder.Services.AddInfrastructure();
+if (builder.Environment.IsEnvironment("OpenApiExport"))
+{
+    builder.Logging.ClearProviders();
+    builder.Services.AddSingleton<IDataProtectionProvider>(
+        new EphemeralDataProtectionProvider());
+    var generationWorker = builder.Services.SingleOrDefault(descriptor =>
+        descriptor.ServiceType == typeof(IHostedService) &&
+        descriptor.ImplementationType ==
+        typeof(ScheduleGenerationBackgroundService));
+    if (generationWorker is not null)
+    {
+        builder.Services.Remove(generationWorker);
+    }
+}
+
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.Name = "__Host-PatikaSession";
@@ -260,6 +308,8 @@ app.MapEmployeeWorkProfileEndpoints();
 app.MapEmployeeShiftQuotaRuleEndpoints();
 app.MapPayrollOnboardingEndpoints();
 app.MapTaxAllowanceSurveyEndpoints();
+app.MapScheduleGenerationEndpoints();
+app.MapScheduleEndpoints();
 
 await app.Services.InitializeDevelopmentDatabaseAsync(
     app.Environment,

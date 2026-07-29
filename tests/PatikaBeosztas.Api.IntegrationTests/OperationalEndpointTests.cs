@@ -28,7 +28,7 @@ public sealed class OperationalEndpointTests
     }
 
     [TestMethod]
-    public async Task OpenApiDocumentsPhase2DEndpointsContractsAndCookieSecurity()
+    public async Task OpenApiDocumentsPhase3AEndpointsContractsAndCookieSecurity()
     {
         await using var application = new ApiFactory(UnusedConnectionString);
         using var client = application.CreateHttpsClient();
@@ -109,7 +109,7 @@ public sealed class OperationalEndpointTests
             Assert.IsTrue(paths.TryGetProperty(path, out _), $"Hiányzó OpenAPI útvonal: {path}");
         }
 
-        var phase2DPaths = new[]
+        var phase3APaths = new[]
         {
             "/api/me/payroll-onboarding",
             "/api/me/tax-allowance-surveys",
@@ -127,15 +127,38 @@ public sealed class OperationalEndpointTests
             "/api/admin/tax-allowance-surveys/{id}/complete",
             "/api/admin/employees/{employeeId}/tax-declaration-requirements",
             "/api/admin/tax-declaration-requirements/{id}/status",
-            "/api/admin/tax-declaration-requirements/{id}/override"
+            "/api/admin/tax-declaration-requirements/{id}/override",
+            "/api/admin/schedule-generations",
+            "/api/admin/schedule-generations/{runId}",
+            "/api/admin/schedule-generations/{runId}/cancel",
+            "/api/admin/schedules",
+            "/api/admin/schedules/{scheduleId}",
+            "/api/admin/schedules/{scheduleId}/clone-draft",
+            "/api/admin/schedules/{scheduleId}/employee-matrix",
+            "/api/admin/schedules/{scheduleId}/location-coverage",
+            "/api/admin/schedules/{scheduleId}/issues",
+            "/api/admin/schedules/{scheduleId}/changes",
+            "/api/admin/schedules/{scheduleId}/shifts/{shiftId}/explanation",
+            "/api/admin/schedules/{scheduleId}/shifts/{shiftId}/alternatives",
+            "/api/admin/schedules/{scheduleId}/shifts/{shiftId}/lock",
+            "/api/admin/schedules/{scheduleId}/shifts/{shiftId}/unlock",
+            "/api/admin/schedules/{scheduleId}/shifts/{shiftId}/reject",
+            "/api/admin/schedules/{scheduleId}/shifts/{shiftId}/replace",
+            "/api/admin/schedules/{scheduleId}/regenerate",
+            "/api/admin/schedules/{scheduleId}/submit-review",
+            "/api/admin/schedules/{scheduleId}/return-draft",
+            "/api/admin/schedules/{scheduleId}/approve",
+            "/api/admin/schedules/{scheduleId}/publish",
+            "/api/admin/schedules/{scheduleId}/archive",
+            "/api/me/schedule"
         };
-        foreach (var path in phase2DPaths)
+        foreach (var path in phase3APaths)
         {
             Assert.IsTrue(paths.TryGetProperty(path, out _), $"Hiányzó OpenAPI útvonal: {path}");
         }
 
         Assert.AreEqual(
-            "0.4.0-phase2d",
+            "0.5.0-phase3a",
             root.GetProperty("info").GetProperty("version").GetString());
         Assert.AreEqual(
             "__Host-PatikaSession",
@@ -220,7 +243,16 @@ public sealed class OperationalEndpointTests
             typeof(Under25AllowanceOptOut),
             typeof(ForeignTaxResidencyOrSimilarForeignBenefit),
             typeof(TaxDeclarationType),
-            typeof(TaxDeclarationRequirementStatus)
+            typeof(TaxDeclarationRequirementStatus),
+            typeof(ScheduleStatus),
+            typeof(ScheduleGenerationStatus),
+            typeof(ScheduleSolverStatus),
+            typeof(ShiftAssignmentSource),
+            typeof(ShiftChangeKind),
+            typeof(ScheduleIssueSeverity),
+            typeof(SuggestionExclusionScope),
+            typeof(PendingLeaveHandlingMode),
+            typeof(RegenerationScopeType)
         };
         foreach (var enumType in publicEnumTypes)
         {
@@ -260,17 +292,13 @@ public sealed class OperationalEndpointTests
         var canonicalPath = Path.Combine(
             AppContext.BaseDirectory,
             "contracts",
-            "openapi.phase2d.json");
+            "openapi.phase3a.json");
         Assert.IsTrue(File.Exists(canonicalPath), "Hiányzik a kanonikus runtime OpenAPI export.");
         var runtimeOpenApi = JsonNode.Parse(body);
         var canonicalOpenApi = JsonNode.Parse(await File.ReadAllTextAsync(canonicalPath));
         Assert.IsNotNull(runtimeOpenApi);
         Assert.IsNotNull(canonicalOpenApi);
-        Assert.AreEqual(
-            "https://localhost:7180/",
-            canonicalOpenApi["servers"]?[0]?["url"]?.GetValue<string>());
-
-        // The request host drives servers, so the test host and local Kestrel port differ.
+        // The request host drives servers, so the test host and export host differ.
         runtimeOpenApi.AsObject().Remove("servers");
         canonicalOpenApi.AsObject().Remove("servers");
         Assert.IsTrue(

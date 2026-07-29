@@ -135,6 +135,7 @@ public static class LocationShiftTemplateEndpoints
             EndTime = request.EndTime,
             IsActive = request.IsActive,
             RequiredCapability = request.RequiredCapability,
+            TimeType = request.TimeType,
             CreatedAtUtc = now,
             UpdatedAtUtc = now
         };
@@ -210,6 +211,7 @@ public static class LocationShiftTemplateEndpoints
         template.EndTime = request.EndTime;
         template.IsActive = request.IsActive;
         template.RequiredCapability = request.RequiredCapability;
+        template.TimeType = request.TimeType;
         template.UpdatedAtUtc = timeProvider.GetUtcNow();
         auditWriter.Add(
             actor.OrganizationId,
@@ -327,7 +329,8 @@ public static class LocationShiftTemplateEndpoints
             template.RequiredCapability,
             template.Version,
             template.CreatedAtUtc,
-            template.UpdatedAtUtc);
+            template.UpdatedAtUtc,
+            template.TimeType);
 
     private static Task<ApplicationUser?> GetActorAsync(
         HttpContext httpContext,

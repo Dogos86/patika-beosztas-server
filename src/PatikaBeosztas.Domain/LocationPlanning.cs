@@ -117,6 +117,8 @@ public sealed class LocationShiftTemplate
 
     public StaffingCapability? RequiredCapability { get; set; }
 
+    public TimeType TimeType { get; set; } = TimeType.Work;
+
     public DateTimeOffset CreatedAtUtc { get; set; }
 
     public DateTimeOffset UpdatedAtUtc { get; set; }
@@ -145,6 +147,8 @@ public sealed class CoverageRequirement
     public int RequiredCount { get; set; }
 
     public CoverageSeverity Severity { get; set; }
+
+    public TimeType TimeType { get; set; } = TimeType.Work;
 
     public bool IsActive { get; set; } = true;
 

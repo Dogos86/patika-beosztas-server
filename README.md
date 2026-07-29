@@ -148,21 +148,21 @@ külön erőforrás: dolgozó fiók nélkül is létrehozható, a fiók pedig k�
 ## Runtime OpenAPI és frontend típusgenerálás
 
 A futó dokumentum címe `https://localhost:7180/openapi/v1.json`. A commitolt,
-kanonikus Phase 2D exportot mindig a runtime válaszból frissítsd; a JSON-t ne
+kanonikus Phase 3A exportot mindig a runtime válaszból frissítsd; a JSON-t ne
 szerkeszd kézzel:
 
 ```powershell
 .\eng\export-openapi.ps1
-Get-FileHash .\contracts\openapi.phase2d.json -Algorithm SHA256
+Get-FileHash .\contracts\openapi.phase3a.json -Algorithm SHA256
 ```
 
 Ha a megfelelő API már fut, a script azt használja. Egyébként ellenőrzi a
 szükséges környezeti változókat, elindítja a helyi PostgreSQL-t, Release buildet
 készít, ideiglenesen elindítja az API-t, validálja az API címét, a
-`0.4.0-phase2d` verziót, a megvalósított modulok útvonalait és a publikus
+`0.5.0-phase3a` verziót, a megvalósított modulok útvonalait és a publikus
 string enumokat, majd csak az általa indított API-folyamatot állítja le. A
 frontend generált típusainak forrása:
-`contracts/openapi.phase2d.json`.
+`contracts/openapi.phase3a.json`.
 
 ## Migráció és minőségi kapuk
 
@@ -202,6 +202,8 @@ A Phase 2C API-átadás, runtime export és helyi integráció:
 `docs/PHASE_2C_API_HANDOFF.md`.
 A Phase 2D HR/bérszámfejtési belépés és adókedvezmény-felmérő:
 `docs/PHASE_2D_IMPLEMENTATION.md`.
+A Phase 3A tartós beosztásgenerálás, CP-SAT optimalizálás és közzététel:
+`docs/PHASE_3A_IMPLEMENTATION.md`.
 A Phase 1.5 hardening, frontend-integráció és production checklist:
 `docs/PHASE_1_5_HARDENING.md`.
 A későbbi beosztásmotor frontend–backend közös termékdöntése:

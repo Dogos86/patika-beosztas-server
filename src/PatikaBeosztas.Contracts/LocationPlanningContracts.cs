@@ -49,7 +49,8 @@ public sealed record CreateLocationShiftTemplateRequest(
     TimeOnly StartTime,
     TimeOnly EndTime,
     bool IsActive,
-    StaffingCapability? RequiredCapability);
+    StaffingCapability? RequiredCapability,
+    TimeType TimeType = TimeType.Work);
 
 public sealed record UpdateLocationShiftTemplateRequest(
     string Name,
@@ -59,7 +60,8 @@ public sealed record UpdateLocationShiftTemplateRequest(
     TimeOnly EndTime,
     bool IsActive,
     StaffingCapability? RequiredCapability,
-    uint ExpectedVersion);
+    uint ExpectedVersion,
+    TimeType TimeType = TimeType.Work);
 
 public sealed record DeactivateLocationShiftTemplateRequest(uint ExpectedVersion);
 
@@ -76,4 +78,5 @@ public sealed record LocationShiftTemplateResponse(
     StaffingCapability? RequiredCapability,
     uint Version,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    TimeType TimeType = TimeType.Work);

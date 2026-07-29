@@ -8,6 +8,8 @@ using PatikaBeosztas.Infrastructure.Identity;
 using PatikaBeosztas.Infrastructure.Persistence;
 using PatikaBeosztas.Infrastructure.Security;
 using PatikaBeosztas.Application.Security;
+using PatikaBeosztas.Application.Scheduling;
+using PatikaBeosztas.Infrastructure.Scheduling;
 
 namespace PatikaBeosztas.Infrastructure;
 
@@ -48,6 +50,9 @@ public static class DependencyInjection
         services.AddDataProtection()
             .SetApplicationName("PatikaBeosztas.Payroll");
         services.AddSingleton<ITaxIdentifierProtector, TaxIdentifierProtector>();
+        services.AddScoped<ScheduleInputSnapshotFactory>();
+        services.AddSingleton<IScheduleOptimizer, OrToolsScheduleOptimizer>();
+        services.AddHostedService<ScheduleGenerationBackgroundService>();
         services.AddSingleton(TimeProvider.System);
 
         return services;

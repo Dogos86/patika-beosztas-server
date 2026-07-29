@@ -159,6 +159,7 @@ public static class CoverageRequirementEndpoints
             RequiredCount = request.RequiredCount,
             Severity = request.Severity,
             IsActive = request.IsActive,
+            TimeType = request.TimeType,
             CreatedAtUtc = now,
             UpdatedAtUtc = now
         };
@@ -247,6 +248,7 @@ public static class CoverageRequirementEndpoints
         requirement.RequiredCount = request.RequiredCount;
         requirement.Severity = request.Severity;
         requirement.IsActive = request.IsActive;
+        requirement.TimeType = request.TimeType;
         requirement.UpdatedAtUtc = timeProvider.GetUtcNow();
         auditWriter.Add(
             actor.OrganizationId,
@@ -402,7 +404,8 @@ public static class CoverageRequirementEndpoints
             GetWarnings(requirement, opening),
             requirement.Version,
             requirement.CreatedAtUtc,
-            requirement.UpdatedAtUtc);
+            requirement.UpdatedAtUtc,
+            requirement.TimeType);
 
     private static List<string> GetWarnings(
         CoverageRequirement requirement,

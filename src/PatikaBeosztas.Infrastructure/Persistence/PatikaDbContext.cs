@@ -55,6 +55,22 @@ public sealed class PatikaDbContext(
     public DbSet<TaxDeclarationRequirement> TaxDeclarationRequirements =>
         Set<TaxDeclarationRequirement>();
 
+    public DbSet<SchedulePlan> SchedulePlans => Set<SchedulePlan>();
+
+    public DbSet<ScheduleGenerationRun> ScheduleGenerationRuns =>
+        Set<ScheduleGenerationRun>();
+
+    public DbSet<ShiftAssignment> ShiftAssignments => Set<ShiftAssignment>();
+
+    public DbSet<ShiftSegment> ShiftSegments => Set<ShiftSegment>();
+
+    public DbSet<ScheduleIssue> ScheduleIssues => Set<ScheduleIssue>();
+
+    public DbSet<ShiftExplanation> ShiftExplanations => Set<ShiftExplanation>();
+
+    public DbSet<GeneratedSuggestionDecision> GeneratedSuggestionDecisions =>
+        Set<GeneratedSuggestionDecision>();
+
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
@@ -73,6 +89,7 @@ public sealed class PatikaDbContext(
         ConfigureLocationPlanning(builder);
         ConfigureEmployeePlanning(builder);
         ConfigurePayrollOnboarding(builder);
+        ConfigureScheduling(builder);
         ConfigurePermissions(builder);
         ConfigureAudit(builder);
     }
@@ -461,6 +478,9 @@ public sealed class PatikaDbContext(
             entity.Property(template => template.RequiredCapability)
                 .HasConversion<string>()
                 .HasMaxLength(40);
+            entity.Property(template => template.TimeType)
+                .HasConversion<string>()
+                .HasMaxLength(30);
             entity.Property(template => template.Version)
                 .IsRowVersion()
                 .HasColumnName("xmin");
@@ -492,6 +512,9 @@ public sealed class PatikaDbContext(
             entity.Property(requirement => requirement.Severity)
                 .HasConversion<string>()
                 .HasMaxLength(20);
+            entity.Property(requirement => requirement.TimeType)
+                .HasConversion<string>()
+                .HasMaxLength(30);
             entity.Property(requirement => requirement.Version)
                 .IsRowVersion()
                 .HasColumnName("xmin");
@@ -905,6 +928,446 @@ public sealed class PatikaDbContext(
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }
+
+    private static void ConfigureScheduling(ModelBuilder builder)
+    {
+        builder.Entity<SchedulePlan>(entity =>
+        {
+            entity.ToTable("SchedulePlans");
+            entity.HasKey(plan => plan.Id);
+            entity.Property(plan => plan.TimeZoneId).HasMaxLength(100);
+            entity.Property(plan => plan.Status).HasConversion<string>().HasMaxLength(30);
+            entity.Property(plan => plan.AlgorithmVersion).HasMaxLength(100);
+            entity.Property(plan => plan.GenerationOptionsSnapshot).HasColumnType("jsonb");
+            entity.Property(plan => plan.InputSnapshotHash).HasMaxLength(64);
+            entity.Property(plan => plan.CloneIdempotencyKeyHash).HasMaxLength(64);
+            entity.Property(plan => plan.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin");
+            entity.HasAlternateKey(plan => new { plan.OrganizationId, plan.Id });
+            entity.HasIndex(plan => new
+            {
+                plan.OrganizationId,
+                plan.PeriodStart,
+                plan.PeriodEnd,
+                plan.Status
+            });
+            entity.HasIndex(plan => new
+            {
+                plan.OrganizationId,
+                plan.PeriodStart,
+                plan.PeriodEnd,
+                plan.PublishedRevisionNumber
+            }).IsUnique()
+                .HasFilter("\"PublishedRevisionNumber\" > 0");
+            entity.HasIndex(plan => new
+            {
+                plan.OrganizationId,
+                plan.CloneIdempotencyKeyHash
+            }).IsUnique()
+                .HasFilter("\"CloneIdempotencyKeyHash\" IS NOT NULL");
+            entity.HasOne(plan => plan.Organization)
+                .WithMany()
+                .HasForeignKey(plan => plan.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(plan => plan.BasedOnSchedule)
+                .WithMany()
+                .HasForeignKey(plan => new
+                {
+                    plan.OrganizationId,
+                    plan.BasedOnScheduleId
+                })
+                .HasPrincipalKey(plan => new { plan.OrganizationId, plan.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            ConfigureScheduleActor(
+                entity,
+                plan => plan.CreatedByUserId);
+            ConfigureScheduleActor(
+                entity,
+                plan => plan.UpdatedByUserId);
+            ConfigureScheduleActor(
+                entity,
+                plan => plan.ReviewRequestedByUserId);
+            ConfigureScheduleActor(
+                entity,
+                plan => plan.ApprovedByUserId);
+            ConfigureScheduleActor(
+                entity,
+                plan => plan.PublishedByUserId);
+            ConfigureScheduleActor(
+                entity,
+                plan => plan.ArchivedByUserId);
+        });
+
+        builder.Entity<ScheduleGenerationRun>(entity =>
+        {
+            entity.ToTable("ScheduleGenerationRuns");
+            entity.HasKey(run => run.Id);
+            entity.Property(run => run.Status).HasConversion<string>().HasMaxLength(30);
+            entity.Property(run => run.AlgorithmVersion).HasMaxLength(100);
+            entity.Property(run => run.OptionsJson).HasColumnType("jsonb");
+            entity.Property(run => run.InputSnapshotJson).HasColumnType("jsonb");
+            entity.Property(run => run.InputSnapshotHash).HasMaxLength(64);
+            entity.Property(run => run.SolverStatus)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(run => run.SolverStatisticsJson).HasColumnType("jsonb");
+            entity.Property(run => run.ErrorCode).HasMaxLength(100);
+            entity.Property(run => run.RedactedError).HasMaxLength(1000);
+            entity.Property(run => run.IdempotencyKeyHash).HasMaxLength(64);
+            entity.Property(run => run.ScopeConcurrencyKey).HasMaxLength(100);
+            entity.Property(run => run.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin");
+            entity.HasAlternateKey(run => new { run.OrganizationId, run.Id });
+            entity.HasIndex(run => new
+            {
+                run.OrganizationId,
+                run.IdempotencyKeyHash
+            }).IsUnique();
+            entity.HasIndex(run => new
+            {
+                run.OrganizationId,
+                run.Status,
+                run.RequestedAtUtc
+            });
+            entity.HasIndex(run => new
+            {
+                run.OrganizationId,
+                run.SchedulePlanId
+            }).IsUnique()
+                .HasFilter("\"Status\" IN ('Queued', 'Running')");
+            entity.HasIndex(run => new
+            {
+                run.OrganizationId,
+                run.ScopeConcurrencyKey
+            }).IsUnique()
+                .HasFilter("\"Status\" IN ('Queued', 'Running')");
+            entity.HasOne(run => run.SchedulePlan)
+                .WithMany(plan => plan.GenerationRuns)
+                .HasForeignKey(run => new
+                {
+                    run.OrganizationId,
+                    run.SchedulePlanId
+                })
+                .HasPrincipalKey(plan => new { plan.OrganizationId, plan.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(run => new
+                {
+                    run.OrganizationId,
+                    run.RequestedByUserId
+                })
+                .HasPrincipalKey(user => new { user.OrganizationId, user.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<ShiftAssignment>(entity =>
+        {
+            entity.ToTable("ShiftAssignments");
+            entity.HasKey(shift => shift.Id);
+            entity.Property(shift => shift.Source)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.Property(shift => shift.ChangeKind)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+            entity.Property(shift => shift.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin");
+            entity.HasAlternateKey(shift => new { shift.OrganizationId, shift.Id });
+            entity.HasIndex(shift => new
+            {
+                shift.OrganizationId,
+                shift.SchedulePlanId,
+                shift.Date,
+                shift.EmployeeId
+            });
+            entity.HasIndex(shift => new
+            {
+                shift.OrganizationId,
+                shift.SchedulePlanId,
+                shift.LocationId,
+                shift.Date,
+                shift.StartTime
+            });
+            entity.HasOne(shift => shift.SchedulePlan)
+                .WithMany(plan => plan.ShiftAssignments)
+                .HasForeignKey(shift => new
+                {
+                    shift.OrganizationId,
+                    shift.SchedulePlanId
+                })
+                .HasPrincipalKey(plan => new { plan.OrganizationId, plan.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(shift => shift.Employee)
+                .WithMany()
+                .HasForeignKey(shift => new
+                {
+                    shift.OrganizationId,
+                    shift.EmployeeId
+                })
+                .HasPrincipalKey(employee => new { employee.OrganizationId, employee.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(shift => shift.Location)
+                .WithMany()
+                .HasForeignKey(shift => new
+                {
+                    shift.OrganizationId,
+                    shift.LocationId
+                })
+                .HasPrincipalKey(location => new { location.OrganizationId, location.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(shift => shift.GeneratedByRun)
+                .WithMany(run => run.GeneratedAssignments)
+                .HasForeignKey(shift => new
+                {
+                    shift.OrganizationId,
+                    shift.GeneratedByRunId
+                })
+                .HasPrincipalKey(run => new { run.OrganizationId, run.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(shift => shift.ReplacesShift)
+                .WithMany()
+                .HasForeignKey(shift => new
+                {
+                    shift.OrganizationId,
+                    shift.ReplacesShiftId
+                })
+                .HasPrincipalKey(shift => new { shift.OrganizationId, shift.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            ConfigureScheduleActor(entity, shift => shift.CreatedByUserId);
+            ConfigureScheduleActor(entity, shift => shift.UpdatedByUserId);
+        });
+
+        builder.Entity<ShiftSegment>(entity =>
+        {
+            entity.ToTable("ShiftSegments");
+            entity.HasKey(segment => segment.Id);
+            entity.Property(segment => segment.TimeType)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+            entity.HasIndex(segment => new
+            {
+                segment.OrganizationId,
+                segment.ShiftAssignmentId,
+                segment.StartTime
+            });
+            entity.HasOne(segment => segment.ShiftAssignment)
+                .WithMany(shift => shift.Segments)
+                .HasForeignKey(segment => new
+                {
+                    segment.OrganizationId,
+                    segment.ShiftAssignmentId
+                })
+                .HasPrincipalKey(shift => new { shift.OrganizationId, shift.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ScheduleIssue>(entity =>
+        {
+            entity.ToTable("ScheduleIssues");
+            entity.HasKey(issue => issue.Id);
+            entity.Property(issue => issue.Code).HasMaxLength(100);
+            entity.Property(issue => issue.Severity)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+            entity.Property(issue => issue.ParametersJson).HasColumnType("jsonb");
+            entity.Property(issue => issue.ResolutionNote).HasMaxLength(1000);
+            entity.Property(issue => issue.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin");
+            entity.HasAlternateKey(issue => new { issue.OrganizationId, issue.Id });
+            entity.HasIndex(issue => new
+            {
+                issue.OrganizationId,
+                issue.SchedulePlanId,
+                issue.Severity,
+                issue.IsResolved
+            });
+            entity.HasIndex(issue => new
+            {
+                issue.OrganizationId,
+                issue.Code,
+                issue.Date
+            });
+            entity.HasOne(issue => issue.SchedulePlan)
+                .WithMany(plan => plan.Issues)
+                .HasForeignKey(issue => new
+                {
+                    issue.OrganizationId,
+                    issue.SchedulePlanId
+                })
+                .HasPrincipalKey(plan => new { plan.OrganizationId, plan.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(issue => issue.GenerationRun)
+                .WithMany(run => run.Issues)
+                .HasForeignKey(issue => new
+                {
+                    issue.OrganizationId,
+                    issue.GenerationRunId
+                })
+                .HasPrincipalKey(run => new { run.OrganizationId, run.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<Employee>()
+                .WithMany()
+                .HasForeignKey(issue => new
+                {
+                    issue.OrganizationId,
+                    issue.EmployeeId
+                })
+                .HasPrincipalKey(employee => new { employee.OrganizationId, employee.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<Location>()
+                .WithMany()
+                .HasForeignKey(issue => new
+                {
+                    issue.OrganizationId,
+                    issue.LocationId
+                })
+                .HasPrincipalKey(location => new { location.OrganizationId, location.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ShiftAssignment>()
+                .WithMany()
+                .HasForeignKey(issue => new
+                {
+                    issue.OrganizationId,
+                    issue.ShiftAssignmentId
+                })
+                .HasPrincipalKey(shift => new { shift.OrganizationId, shift.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            ConfigureScheduleActor(entity, issue => issue.ResolutionByUserId);
+        });
+
+        builder.Entity<ShiftExplanation>(entity =>
+        {
+            entity.ToTable("ShiftExplanations");
+            entity.HasKey(explanation => explanation.Id);
+            entity.Property(explanation => explanation.AlgorithmVersion)
+                .HasMaxLength(100);
+            entity.Property(explanation => explanation.ReasonCodesJson)
+                .HasColumnType("jsonb");
+            entity.Property(explanation => explanation.ScoreComponentsJson)
+                .HasColumnType("jsonb");
+            entity.Property(explanation => explanation.AlternativesJson)
+                .HasColumnType("jsonb");
+            entity.HasIndex(explanation => new
+            {
+                explanation.OrganizationId,
+                explanation.ShiftAssignmentId
+            }).IsUnique();
+            entity.HasOne(explanation => explanation.ShiftAssignment)
+                .WithOne(shift => shift.Explanation)
+                .HasForeignKey<ShiftExplanation>(explanation => new
+                {
+                    explanation.OrganizationId,
+                    explanation.ShiftAssignmentId
+                })
+                .HasPrincipalKey<ShiftAssignment>(shift => new
+                {
+                    shift.OrganizationId,
+                    shift.Id
+                })
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<SchedulePlan>()
+                .WithMany()
+                .HasForeignKey(explanation => new
+                {
+                    explanation.OrganizationId,
+                    explanation.SchedulePlanId
+                })
+                .HasPrincipalKey(plan => new { plan.OrganizationId, plan.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ScheduleGenerationRun>()
+                .WithMany()
+                .HasForeignKey(explanation => new
+                {
+                    explanation.OrganizationId,
+                    explanation.GenerationRunId
+                })
+                .HasPrincipalKey(run => new { run.OrganizationId, run.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<GeneratedSuggestionDecision>(entity =>
+        {
+            entity.ToTable("GeneratedSuggestionDecisions");
+            entity.HasKey(decision => decision.Id);
+            entity.Property(decision => decision.DecisionType)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+            entity.Property(decision => decision.ExclusionScope)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+            entity.Property(decision => decision.Reason).HasMaxLength(1000);
+            entity.HasIndex(decision => new
+            {
+                decision.OrganizationId,
+                decision.SchedulePlanId,
+                decision.ShiftAssignmentId,
+                decision.OccurredAtUtc
+            });
+            entity.HasOne(decision => decision.ShiftAssignment)
+                .WithMany()
+                .HasForeignKey(decision => new
+                {
+                    decision.OrganizationId,
+                    decision.ShiftAssignmentId
+                })
+                .HasPrincipalKey(shift => new { shift.OrganizationId, shift.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<SchedulePlan>()
+                .WithMany()
+                .HasForeignKey(decision => new
+                {
+                    decision.OrganizationId,
+                    decision.SchedulePlanId
+                })
+                .HasPrincipalKey(plan => new { plan.OrganizationId, plan.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ScheduleGenerationRun>()
+                .WithMany()
+                .HasForeignKey(decision => new
+                {
+                    decision.OrganizationId,
+                    decision.GenerationRunId
+                })
+                .HasPrincipalKey(run => new { run.OrganizationId, run.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            ConfigureScheduleActor(entity, decision => decision.ActorUserId);
+        });
+    }
+
+    private static void ConfigureScheduleActor<TEntity>(
+        Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<TEntity> entity,
+        System.Linq.Expressions.Expression<Func<TEntity, Guid>> foreignKey)
+        where TEntity : class =>
+        entity.HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey("OrganizationId", GetPropertyName(foreignKey))
+            .HasPrincipalKey(
+                nameof(ApplicationUser.OrganizationId),
+                nameof(ApplicationUser.Id))
+            .OnDelete(DeleteBehavior.Restrict);
+
+    private static void ConfigureScheduleActor<TEntity>(
+        Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<TEntity> entity,
+        System.Linq.Expressions.Expression<Func<TEntity, Guid?>> foreignKey)
+        where TEntity : class =>
+        entity.HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey("OrganizationId", GetPropertyName(foreignKey))
+            .HasPrincipalKey(
+                nameof(ApplicationUser.OrganizationId),
+                nameof(ApplicationUser.Id))
+            .OnDelete(DeleteBehavior.Restrict);
+
+    private static string GetPropertyName<TEntity, TProperty>(
+        System.Linq.Expressions.Expression<Func<TEntity, TProperty>> expression) =>
+        expression.Body is System.Linq.Expressions.MemberExpression member
+            ? member.Member.Name
+            : throw new ArgumentException("Egyszerű property expression szükséges.", nameof(expression));
 
     private static void ConfigureAudit(ModelBuilder builder)
     {

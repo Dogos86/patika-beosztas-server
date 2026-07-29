@@ -9,12 +9,12 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $expectedTitle = "Patika Beoszt$([char]0x00E1)s API"
-$expectedVersion = "0.4.0-phase2d"
+$expectedVersion = "0.5.0-phase3a"
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $envFile = Join-Path $repositoryRoot ".env"
 $apiProject = Join-Path $repositoryRoot "src/PatikaBeosztas.Api/PatikaBeosztas.Api.csproj"
 $apiAssembly = Join-Path $repositoryRoot "src/PatikaBeosztas.Api/bin/Release/net10.0/PatikaBeosztas.Api.dll"
-$outputPath = Join-Path $repositoryRoot "contracts/openapi.phase2d.json"
+$outputPath = Join-Path $repositoryRoot "contracts/openapi.phase3a.json"
 $openApiUri = [uri]::new($ApiBaseUri, "/openapi/v1.json")
 $startedApiProcess = $null
 
@@ -146,7 +146,30 @@ function Assert-OpenApiDocument {
         "/api/admin/employees/{employeeId}/payroll-onboarding",
         "/api/admin/employees/{employeeId}/payroll-onboarding/export",
         "/api/admin/tax-allowance-surveys/{id}/review",
-        "/api/admin/employees/{employeeId}/tax-declaration-requirements"
+        "/api/admin/employees/{employeeId}/tax-declaration-requirements",
+        "/api/admin/schedule-generations",
+        "/api/admin/schedule-generations/{runId}",
+        "/api/admin/schedule-generations/{runId}/cancel",
+        "/api/admin/schedules",
+        "/api/admin/schedules/{scheduleId}",
+        "/api/admin/schedules/{scheduleId}/clone-draft",
+        "/api/admin/schedules/{scheduleId}/employee-matrix",
+        "/api/admin/schedules/{scheduleId}/location-coverage",
+        "/api/admin/schedules/{scheduleId}/issues",
+        "/api/admin/schedules/{scheduleId}/changes",
+        "/api/admin/schedules/{scheduleId}/shifts/{shiftId}/explanation",
+        "/api/admin/schedules/{scheduleId}/shifts/{shiftId}/alternatives",
+        "/api/admin/schedules/{scheduleId}/shifts/{shiftId}/lock",
+        "/api/admin/schedules/{scheduleId}/shifts/{shiftId}/unlock",
+        "/api/admin/schedules/{scheduleId}/shifts/{shiftId}/reject",
+        "/api/admin/schedules/{scheduleId}/shifts/{shiftId}/replace",
+        "/api/admin/schedules/{scheduleId}/regenerate",
+        "/api/admin/schedules/{scheduleId}/submit-review",
+        "/api/admin/schedules/{scheduleId}/return-draft",
+        "/api/admin/schedules/{scheduleId}/approve",
+        "/api/admin/schedules/{scheduleId}/publish",
+        "/api/admin/schedules/{scheduleId}/archive",
+        "/api/me/schedule"
     )
     $availablePaths = $document.paths.PSObject.Properties.Name
     foreach ($path in $requiredPaths) {
@@ -183,7 +206,16 @@ function Assert-OpenApiDocument {
         "Under25AllowanceOptOut",
         "ForeignTaxResidencyOrSimilarForeignBenefit",
         "TaxDeclarationType",
-        "TaxDeclarationRequirementStatus"
+        "TaxDeclarationRequirementStatus",
+        "ScheduleStatus",
+        "ScheduleGenerationStatus",
+        "ScheduleSolverStatus",
+        "ShiftAssignmentSource",
+        "ShiftChangeKind",
+        "ScheduleIssueSeverity",
+        "SuggestionExclusionScope",
+        "PendingLeaveHandlingMode",
+        "RegenerationScopeType"
     )
     foreach ($schemaName in $requiredStringEnums) {
         $schemaProperty = $document.components.schemas.PSObject.Properties[$schemaName]
@@ -321,7 +353,7 @@ try {
     }
 
     $hash = (Get-FileHash -LiteralPath $outputPath -Algorithm SHA256).Hash.ToLowerInvariant()
-    Write-Host "Runtime OpenAPI export elkészült: contracts/openapi.phase2d.json"
+    Write-Host "Runtime OpenAPI export elkészült: contracts/openapi.phase3a.json"
     Write-Host "SHA256: $hash"
 }
 finally {

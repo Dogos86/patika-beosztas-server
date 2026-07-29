@@ -21,5 +21,9 @@
     <None Include="../../contracts/openapi.phase2d.json"
           Link="contracts/openapi.phase2d.json"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../contracts/openapi.phase3a.json"
+          Link="contracts/openapi.phase3a.json"
+          CopyToOutputDirectory="PreserveNewest"
+          Condition="Exists('../../contracts/openapi.phase3a.json')" />
   </ItemGroup>
 </Project>

@@ -137,6 +137,94 @@ public enum TimeType
     Other
 }
 
+public enum ScheduleStatus
+{
+    Generating,
+    Draft,
+    UnderReview,
+    Approved,
+    Published,
+    Archived
+}
+
+public enum ScheduleGenerationStatus
+{
+    Queued,
+    Running,
+    Succeeded,
+    Failed,
+    Cancelled
+}
+
+public enum ScheduleSolverStatus
+{
+    NotStarted,
+    Optimal,
+    Feasible,
+    Infeasible,
+    Unknown,
+    ModelInvalid,
+    Failed,
+    Cancelled,
+    HeuristicFallback
+}
+
+public enum ShiftAssignmentSource
+{
+    Generated,
+    Replacement,
+    Imported,
+    ManualCorrection
+}
+
+public enum ShiftChangeKind
+{
+    New,
+    Modified,
+    Deleted,
+    Unchanged
+}
+
+public enum ScheduleIssueSeverity
+{
+    Info,
+    Warning,
+    Blocking
+}
+
+public enum GeneratedSuggestionDecisionType
+{
+    Accept,
+    Reject,
+    Lock,
+    Unlock,
+    Replace
+}
+
+public enum SuggestionExclusionScope
+{
+    Run,
+    Schedule,
+    Period
+}
+
+public enum PendingLeaveHandlingMode
+{
+    IgnorePending,
+    TreatAsTemporaryAbsence
+}
+
+public enum RegenerationScopeType
+{
+    FullPeriod,
+    Day,
+    DateRange,
+    Week,
+    Location,
+    CapabilityAndTimeType,
+    Issues
+}
+
 [SuppressMessage(
     "Naming",
     "CA1711:Identifiers should not have incorrect suffix",
@@ -159,7 +247,9 @@ public enum ApplicationPermission
     ManagePayrollOnboarding,
     ViewPayrollSensitiveData,
     ReviewTaxAllowanceSurvey,
-    ExportPayrollData
+    ExportPayrollData,
+    ApproveSchedules,
+    PublishSchedules
 }
 
 public enum EmployeePayrollProfileStatus

@@ -5,14 +5,19 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PatikaBeosztas.Domain;
 using PatikaBeosztas.Infrastructure.Identity;
 using PatikaBeosztas.Infrastructure.Persistence;
+using PatikaBeosztas.Infrastructure.Scheduling;
 
 namespace PatikaBeosztas.Api.IntegrationTests;
 
-internal sealed class ApiFactory(string connectionString) : WebApplicationFactory<Program>
+internal sealed class ApiFactory(
+    string connectionString,
+    bool disableScheduleGenerationWorker = false)
+    : WebApplicationFactory<Program>
 {
     public HttpClient CreateHttpsClient() =>
         CreateClient(new WebApplicationFactoryClientOptions
@@ -35,10 +40,32 @@ internal sealed class ApiFactory(string connectionString) : WebApplicationFactor
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
-        builder.ConfigureLogging(logging => logging.ClearProviders());
+        builder.ConfigureLogging(logging =>
+        {
+            logging.ClearProviders();
+            if (string.Equals(
+                    Environment.GetEnvironmentVariable(
+                        "PATIKA_TEST_CONSOLE_LOGGING"),
+                    "1",
+                    StringComparison.Ordinal))
+            {
+                logging.AddConsole();
+            }
+        });
         builder.ConfigureServices(services =>
+        {
+            if (disableScheduleGenerationWorker)
+            {
+                var worker = services.Single(descriptor =>
+                    descriptor.ServiceType == typeof(IHostedService) &&
+                    descriptor.ImplementationType ==
+                    typeof(ScheduleGenerationBackgroundService));
+                services.Remove(worker);
+            }
+
             services.AddSingleton<IDataProtectionProvider>(
-                new EphemeralDataProtectionProvider()));
+                new EphemeralDataProtectionProvider());
+        });
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             configuration.AddInMemoryCollection(
@@ -222,7 +249,11 @@ internal static class IntegrationTestData
                 ApplicationPermission.ManagePayrollOnboarding,
                 ApplicationPermission.ViewPayrollSensitiveData,
                 ApplicationPermission.ReviewTaxAllowanceSurvey,
-                ApplicationPermission.ExportPayrollData
+                ApplicationPermission.ExportPayrollData,
+                ApplicationPermission.ManageSchedules,
+                ApplicationPermission.RunAutoFill,
+                ApplicationPermission.ApproveSchedules,
+                ApplicationPermission.PublishSchedules
             ],
             now);
         await CreateUserAsync(

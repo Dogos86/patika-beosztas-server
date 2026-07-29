@@ -10,7 +10,8 @@ public sealed record CreateCoverageRequirementRequest(
     StaffingCapability RequiredCapability,
     int RequiredCount,
     CoverageSeverity Severity,
-    bool IsActive);
+    bool IsActive,
+    TimeType TimeType = TimeType.Work);
 
 public sealed record UpdateCoverageRequirementRequest(
     Guid LocationId,
@@ -21,7 +22,8 @@ public sealed record UpdateCoverageRequirementRequest(
     int RequiredCount,
     CoverageSeverity Severity,
     bool IsActive,
-    uint ExpectedVersion);
+    uint ExpectedVersion,
+    TimeType TimeType = TimeType.Work);
 
 public sealed record DeactivateCoverageRequirementRequest(uint ExpectedVersion);
 
@@ -40,4 +42,5 @@ public sealed record CoverageRequirementResponse(
     IReadOnlyList<string> Warnings,
     uint Version,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    TimeType TimeType = TimeType.Work);

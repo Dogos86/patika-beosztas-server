@@ -12,6 +12,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/PatikaBeosztas.Application/PatikaBeosztas.Application.csproj" />
+    <ProjectReference Include="../../src/PatikaBeosztas.Infrastructure/PatikaBeosztas.Infrastructure.csproj" />
   </ItemGroup>
 </Project>
-
