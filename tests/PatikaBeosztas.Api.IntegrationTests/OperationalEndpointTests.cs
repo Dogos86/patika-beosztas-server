@@ -15,16 +15,69 @@ public sealed class OperationalEndpointTests
         "Host=localhost;Port=1;Database=unused;Username=unused;Password=unused";
 
     [TestMethod]
-    public async Task HealthEndpointReturnsHealthyResponse()
+    public async Task LivenessDoesNotDependOnPostgreSql()
     {
         await using var application = new ApiFactory(UnusedConnectionString);
         using var client = application.CreateHttpsClient();
 
-        using var response = await client.GetAsync(new Uri("/health", UriKind.Relative));
+        using var response = await client.GetAsync(
+            new Uri("/health/live", UriKind.Relative));
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         Assert.AreEqual("Healthy", body);
+    }
+
+    [TestMethod]
+    public async Task ReadinessReturnsServiceUnavailableWithoutPostgreSql()
+    {
+        const string unavailableConnection =
+            "Host=127.0.0.1;Port=1;Database=unused;Username=unused;" +
+            "Password=unused;Timeout=1;Command Timeout=1";
+        await using var application = new ApiFactory(
+            unavailableConnection,
+            disableScheduleGenerationWorker: true);
+        using var client = application.CreateHttpsClient();
+
+        using var response = await client.GetAsync(
+            new Uri("/health/ready", UriKind.Relative));
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.AreEqual(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.AreEqual("Unhealthy", body);
+    }
+
+    [TestMethod]
+    public async Task ProductionDoesNotPublishOpenApiOrDemoLogin()
+    {
+        var keysPath = Path.Combine(
+            Path.GetTempPath(),
+            $"patika-production-test-{Guid.NewGuid():N}");
+        try
+        {
+            await using var application = new ApiFactory(
+                UnusedConnectionString,
+                disableScheduleGenerationWorker: true,
+                environmentName: "Production",
+                openApiEnabled: false,
+                dataProtectionKeysPath: keysPath);
+            using var client = application.CreateHttpsClient();
+
+            using var openApiResponse = await client.GetAsync("/openapi/v1.json");
+            using var demoLoginResponse = await client.PostAsync(
+                "/api/auth/demo",
+                content: null);
+
+            Assert.AreEqual(HttpStatusCode.NotFound, openApiResponse.StatusCode);
+            Assert.AreEqual(HttpStatusCode.NotFound, demoLoginResponse.StatusCode);
+        }
+        finally
+        {
+            if (Directory.Exists(keysPath))
+            {
+                Directory.Delete(keysPath, recursive: true);
+            }
+        }
     }
 
     [TestMethod]

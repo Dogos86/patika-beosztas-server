@@ -4,6 +4,14 @@ ASP.NET Core .NET 10 + PostgreSQL backend gyógyszertári szervezet, felhasznál
 jogosultságok, dolgozók és telephelyek kezeléséhez. A felület és a
 felhasználónak szánt hibaüzenetek magyarok; az API- és kódazonosítók angolok.
 
+## Railway zárt pilot
+
+A közös repositoryból egy `web` + `api` + `postgres` Railway pilot telepíthető,
+egyetlen Railway által generált publikus webcímmel. A verziózott konfiguráció,
+volume-, migráció-, első-admin-, backup/restore-, kézi redeploy/rollback- és
+smoke-test leírás:
+[`deployment/railway/README_RAILWAY_PILOT.md`](deployment/railway/README_RAILWAY_PILOT.md).
+
 ## Előfeltételek
 
 - .NET SDK 10.0.300 vagy újabb 10.0.x patch;

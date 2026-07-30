@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -20,13 +19,8 @@ public static class DependencyInjection
         services.AddDbContext<PatikaDbContext>((serviceProvider, options) =>
         {
             var currentConfiguration = serviceProvider.GetRequiredService<IConfiguration>();
-            var connectionString = currentConfiguration.GetConnectionString("DefaultConnection");
-            if (string.IsNullOrWhiteSpace(connectionString))
-            {
-                throw new InvalidOperationException(
-                    "A ConnectionStrings:DefaultConnection konfiguráció kötelező.");
-            }
-
+            var connectionString =
+                PostgreSqlConnectionString.Resolve(currentConfiguration);
             options.UseNpgsql(connectionString);
         });
         services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
@@ -47,9 +41,8 @@ public static class DependencyInjection
 
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
         services.AddScoped<AuditWriter>();
-        services.AddDataProtection()
-            .SetApplicationName("PatikaBeosztas.Payroll");
         services.AddSingleton<ITaxIdentifierProtector, TaxIdentifierProtector>();
+        services.AddScoped<PilotAdminBootstrapper>();
         services.AddScoped<ScheduleInputSnapshotFactory>();
         services.AddSingleton<IScheduleOptimizer, OrToolsScheduleOptimizer>();
         services.AddHostedService<ScheduleGenerationBackgroundService>();

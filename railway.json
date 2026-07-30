@@ -1,0 +1,24 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "backend/Dockerfile",
+    "watchPatterns": [
+      "/backend/**",
+      "/src/**",
+      "/eng/**",
+      "/global.json",
+      "/scripts/railway-migrate.sh"
+    ]
+  },
+  "deploy": {
+    "preDeployCommand": [
+      "sh /app/scripts/railway-migrate.sh"
+    ],
+    "startCommand": "dotnet /app/PatikaBeosztas.Api.dll",
+    "healthcheckPath": "/health/ready",
+    "healthcheckTimeout": 120,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  }
+}

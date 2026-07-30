@@ -3,9 +3,12 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi;
+using PatikaBeosztas.Api;
 using PatikaBeosztas.Api.Endpoints;
 using PatikaBeosztas.Api.Security;
 using PatikaBeosztas.Application.Security;
@@ -24,7 +27,10 @@ builder.Services.ConfigureHttpJsonOptions(options =>
         new JsonStringEnumConverter(allowIntegerValues: false));
 });
 builder.Services.AddProblemDetails();
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddCheck<PostgreSqlReadyHealthCheck>(
+        "postgres",
+        tags: ["ready"]);
 builder.Services.AddOpenApi(options =>
 {
     var stringEnumSchemaNames = new[]
@@ -177,7 +183,19 @@ builder.Services.AddOpenApi(options =>
         return Task.CompletedTask;
     });
 });
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor |
+        ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 builder.Services.AddInfrastructure();
+builder.Services.AddConfiguredDataProtection(
+    builder.Configuration,
+    builder.Environment);
 if (builder.Environment.IsEnvironment("OpenApiExport"))
 {
     builder.Logging.ClearProviders();
@@ -276,14 +294,21 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-if (!app.Environment.IsEnvironment("Testing") &&
-    string.IsNullOrWhiteSpace(app.Configuration.GetConnectionString("DefaultConnection")))
+ProductionConfiguration.Validate(app.Configuration, app.Environment);
+
+var commandExitCode = await PilotRuntimeCommands.TryExecuteAsync(
+    args,
+    app.Services,
+    app.Configuration,
+    app.Lifetime.ApplicationStopping);
+if (commandExitCode is not null)
 {
-    throw new InvalidOperationException(
-        "A ConnectionStrings:DefaultConnection konfiguráció kötelező.");
+    Environment.ExitCode = commandExitCode.Value;
+    return;
 }
 
 app.UseExceptionHandler();
+app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseCors("Frontend");
 app.UseRateLimiter();
@@ -292,8 +317,33 @@ app.UseMiddleware<ActiveUserMiddleware>();
 app.UseAuthorization();
 app.UseAntiforgery();
 
-app.MapHealthChecks("/health");
-app.MapOpenApi();
+app.MapHealthChecks(
+    "/health/live",
+    new HealthCheckOptions
+    {
+        Predicate = _ => false
+    });
+app.MapHealthChecks(
+    "/health/ready",
+    new HealthCheckOptions
+    {
+        Predicate = registration => registration.Tags.Contains("ready")
+    });
+app.MapHealthChecks(
+    "/health",
+    new HealthCheckOptions
+    {
+        Predicate = registration => registration.Tags.Contains("ready")
+    });
+var openApiEnabled =
+    app.Configuration.GetValue<bool>("OpenApi:Enabled") ||
+    app.Environment.IsDevelopment() ||
+    app.Environment.IsEnvironment("Testing") ||
+    app.Environment.IsEnvironment("OpenApiExport");
+if (openApiEnabled)
+{
+    app.MapOpenApi();
+}
 app.MapAuthEndpoints();
 app.MapEmployeeEndpoints();
 app.MapLocationEndpoints();

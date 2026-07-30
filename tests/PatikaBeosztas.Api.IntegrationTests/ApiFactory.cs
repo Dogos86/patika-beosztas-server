@@ -16,7 +16,10 @@ namespace PatikaBeosztas.Api.IntegrationTests;
 
 internal sealed class ApiFactory(
     string connectionString,
-    bool disableScheduleGenerationWorker = false)
+    bool disableScheduleGenerationWorker = false,
+    string environmentName = "Testing",
+    bool openApiEnabled = true,
+    string? dataProtectionKeysPath = null)
     : WebApplicationFactory<Program>
 {
     public HttpClient CreateHttpsClient() =>
@@ -39,7 +42,7 @@ internal sealed class ApiFactory(
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(environmentName);
         builder.ConfigureLogging(logging =>
         {
             logging.ClearProviders();
@@ -73,6 +76,9 @@ internal sealed class ApiFactory(
                 {
                     ["ConnectionStrings:DefaultConnection"] = connectionString,
                     ["Seed:Enabled"] = "false",
+                    ["OpenApi:Enabled"] = openApiEnabled.ToString(),
+                    ["DataProtection:ApplicationName"] = "PatikaBeosztas",
+                    ["DataProtection:KeysPath"] = dataProtectionKeysPath,
                     ["Cors:AllowedOrigins:0"] = "https://localhost:5173",
                     ["SensitiveData:TaxIdentifierHashKey"] =
                         "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
