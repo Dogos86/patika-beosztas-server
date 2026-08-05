@@ -92,6 +92,15 @@ Minden állapotmódosító kérés előtt:
 2. az így kapott `requestToken` értéket küldd `X-CSRF-TOKEN` headerben;
 3. a fetch kérés használja a `credentials: "include"` beállítást.
 
+A frontend ezt egyetlen központi mutációs kliensben valósítja meg. A tokent
+csak memóriában cache-eli, a párhuzamos tokenkérések és kényszerített
+frissítések közös Promise-t használnak. Sikeres login és logout után a cache
+ürül. `INVALID_CSRF_TOKEN` esetén a kliens egyszer kér új tokent, majd az
+eredeti kérést pontosan egyszer, az eredeti idempotenciakulccsal küldi újra;
+egy második CSRF-hiba már felhasználói munkamenet-hibaként jelenik meg.
+Az `/api/auth/csrf` válasz `Cache-Control: no-store`, és a Railway gateway ezt
+a publikus válaszon is kikényszeríti.
+
 A tokenhez tartozó `__Host-PatikaCsrf` cookie `HttpOnly`, `Secure`,
 `SameSite=Strict`. A login IP-particionált, percenként 5 kérésre korlátozott,
 és az Identity 5 hibás próbálkozás után 15 percre zárol.

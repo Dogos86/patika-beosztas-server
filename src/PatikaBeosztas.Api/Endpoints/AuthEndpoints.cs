@@ -15,6 +15,9 @@ public static class AuthEndpoints
 
         group.MapGet("/csrf", (HttpContext context, IAntiforgery antiforgery) =>
             {
+                context.Response.Headers.CacheControl = "no-store";
+                context.Response.Headers.Pragma = "no-cache";
+                context.Response.Headers.Expires = "0";
                 var tokens = antiforgery.GetAndStoreTokens(context);
                 return Results.Ok(new CsrfTokenResponse(
                     tokens.RequestToken ?? string.Empty,

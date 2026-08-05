@@ -1,5 +1,6 @@
 import http from "node:http";
 import { spawn } from "node:child_process";
+import { buildDownstreamHeaders, buildUpstreamHeaders } from "./gateway-headers.mjs";
 
 const publicPort = Number.parseInt(process.env.PORT ?? "3000", 10);
 const frontendPort = Number.parseInt(process.env.FRONTEND_PORT ?? "3001", 10);
@@ -48,24 +49,15 @@ function isApiPath(pathname) {
   );
 }
 
-function firstHeaderValue(value) {
-  if (Array.isArray(value)) return value[0];
-  return value?.split(",")[0]?.trim();
-}
-
 const server = http.createServer((request, response) => {
   const incomingUrl = new URL(request.url ?? "/", "http://gateway.local");
   const target = isApiPath(incomingUrl.pathname) ? apiTarget : frontendTarget;
-  const headers = { ...request.headers };
-
-  headers.host = target.host;
-  headers["x-forwarded-host"] = firstHeaderValue(request.headers.host) ?? "";
-  headers["x-forwarded-proto"] =
-    firstHeaderValue(request.headers["x-forwarded-proto"]) ?? (isPilot ? "https" : "http");
-  headers["x-forwarded-for"] =
-    firstHeaderValue(request.headers["x-forwarded-for"]) ??
-    request.socket.remoteAddress ??
-    "127.0.0.1";
+  const headers = buildUpstreamHeaders(
+    request.headers,
+    target,
+    isPilot,
+    request.socket.remoteAddress,
+  );
 
   const upstream = http.request(
     {
@@ -77,10 +69,14 @@ const server = http.createServer((request, response) => {
       headers,
     },
     (upstreamResponse) => {
+      const responseHeaders = buildDownstreamHeaders(
+        upstreamResponse.headers,
+        incomingUrl.pathname,
+      );
       response.writeHead(
         upstreamResponse.statusCode ?? 502,
         upstreamResponse.statusMessage,
-        upstreamResponse.headers,
+        responseHeaders,
       );
       upstreamResponse.pipe(response);
     },

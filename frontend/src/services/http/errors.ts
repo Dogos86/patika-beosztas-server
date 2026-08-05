@@ -70,7 +70,12 @@ export function mapErrorResponse(status: number, body: ProblemDetails | undefine
       return new ApiError("UNAUTHENTICATED", "Nincs bejelentkezve.", 401, { serverCode });
     case 400:
       if (serverCode === "INVALID_CSRF_TOKEN") {
-        return new ApiError("INVALID_CSRF_TOKEN", "Érvénytelen CSRF token.", 400, { serverCode });
+        return new ApiError(
+          "INVALID_CSRF_TOKEN",
+          "A biztonsági munkamenet lejárt. Frissítsd az oldalt, majd próbáld újra.",
+          400,
+          { serverCode },
+        );
       }
       return new ApiError("VALIDATION", message, 400, {
         fieldErrors: normalizeFieldErrors(body?.errors),
@@ -78,7 +83,12 @@ export function mapErrorResponse(status: number, body: ProblemDetails | undefine
       });
     case 403:
       if (serverCode === "INVALID_CSRF_TOKEN") {
-        return new ApiError("INVALID_CSRF_TOKEN", "Érvénytelen CSRF token.", 403, { serverCode });
+        return new ApiError(
+          "INVALID_CSRF_TOKEN",
+          "A biztonsági munkamenet lejárt. Frissítsd az oldalt, majd próbáld újra.",
+          403,
+          { serverCode },
+        );
       }
       return new ApiError("FORBIDDEN", "Nincs jogosultságod ehhez a művelethez.", 403, {
         serverCode,

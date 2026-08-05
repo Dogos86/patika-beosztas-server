@@ -157,6 +157,114 @@ public sealed class Phase3ARuntimeTests
     }
 
     [TestMethod]
+    public async Task CsrfSessionLifecycleSupportsEmployeeGenerationRegenerationAndRelogin()
+    {
+        await SeedPlanningInputAsync();
+        await LoginAsync("admin@test.invalid");
+
+        using var csrfResponse = await client.GetAsync("/api/auth/csrf");
+        Assert.AreEqual(HttpStatusCode.OK, csrfResponse.StatusCode);
+        Assert.IsTrue(csrfResponse.Headers.CacheControl?.NoStore);
+        var token = await csrfResponse.Content.ReadFromJsonAsync<CsrfTokenResponse>(
+            JsonOptions);
+        Assert.IsNotNull(token);
+
+        using var employeeResponse = await SendWithTokenAsync(
+            HttpMethod.Post,
+            "/api/admin/employees",
+            new CreateEmployeeRequest(
+                "CSRF életciklus dolgozó",
+                "CSRF dolgozó",
+                ProfessionalRole.Assistant,
+                true,
+                false,
+                false,
+                false,
+                null,
+                null,
+                null,
+                null,
+                [],
+                [],
+                [TimeType.Work]),
+            token);
+        Assert.AreEqual(HttpStatusCode.Created, employeeResponse.StatusCode);
+
+        using var generationResponse = await SendWithTokenAsync(
+            HttpMethod.Post,
+            "/api/admin/schedule-generations",
+            new CreateScheduleGenerationRequest(
+                PlanningDate,
+                PlanningDate,
+                51,
+                10,
+                1),
+            token,
+            "csrf-lifecycle-generation-0001");
+        Assert.AreEqual(HttpStatusCode.Accepted, generationResponse.StatusCode);
+        var generation = await ReadAsync<ScheduleGenerationRunResponse>(
+            generationResponse);
+        var completedGeneration = await WaitForTerminalRunAsync(generation.Id);
+        Assert.AreEqual(
+            ScheduleGenerationStatus.Succeeded,
+            completedGeneration.Status);
+
+        var schedule = await GetScheduleAsync(completedGeneration.SchedulePlanId);
+        using var regenerationResponse = await SendWithTokenAsync(
+            HttpMethod.Post,
+            $"/api/admin/schedules/{schedule.Id}/regenerate",
+            new RegenerateScheduleRequest(
+                new RegenerationScopeRequest(
+                    RegenerationScopeType.FullPeriod,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    []),
+                schedule.Version,
+                52,
+                10,
+                1),
+            token,
+            "csrf-lifecycle-regeneration-0001");
+        Assert.AreEqual(HttpStatusCode.Accepted, regenerationResponse.StatusCode);
+        var regeneration = await ReadAsync<ScheduleGenerationRunResponse>(
+            regenerationResponse);
+        var completedRegeneration = await WaitForTerminalRunAsync(regeneration.Id);
+        Assert.AreEqual(
+            ScheduleGenerationStatus.Succeeded,
+            completedRegeneration.Status);
+
+        using var logoutResponse = await SendWithTokenAsync(
+            HttpMethod.Post,
+            "/api/auth/logout",
+            null,
+            token);
+        Assert.AreEqual(HttpStatusCode.NoContent, logoutResponse.StatusCode);
+
+        await LoginAsync("admin@test.invalid");
+        var reloginToken = await GetCsrfTokenAsync();
+        using var reloginGenerationResponse = await SendWithTokenAsync(
+            HttpMethod.Post,
+            "/api/admin/schedule-generations",
+            new CreateScheduleGenerationRequest(
+                PlanningDate,
+                PlanningDate,
+                53,
+                10,
+                1),
+            reloginToken,
+            "csrf-lifecycle-generation-0002");
+        Assert.AreEqual(
+            HttpStatusCode.Accepted,
+            reloginGenerationResponse.StatusCode);
+        var reloginGeneration = await ReadAsync<ScheduleGenerationRunResponse>(
+            reloginGenerationResponse);
+        _ = await WaitForTerminalRunAsync(reloginGeneration.Id);
+    }
+
+    [TestMethod]
     public async Task CancelActiveScopeControlAndRestartRecoveryArePersistent()
     {
         await RecreateApplicationAsync(disableWorker: true);
@@ -1007,9 +1115,26 @@ public sealed class Phase3ARuntimeTests
         string? idempotencyKey = null)
     {
         var token = await GetCsrfTokenAsync();
+        return await SendWithTokenAsync(
+            method,
+            path,
+            body,
+            token,
+            idempotencyKey);
+    }
+
+    private async Task<HttpResponseMessage> SendWithTokenAsync(
+        HttpMethod method,
+        string path,
+        object? body,
+        CsrfTokenResponse token,
+        string? idempotencyKey = null)
+    {
         using var request = new HttpRequestMessage(method, path)
         {
-            Content = JsonContent.Create(body, options: JsonOptions)
+            Content = body is null
+                ? null
+                : JsonContent.Create(body, options: JsonOptions)
         };
         request.Headers.Add(token.HeaderName, token.RequestToken);
         if (idempotencyKey is not null)

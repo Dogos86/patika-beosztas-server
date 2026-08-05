@@ -69,6 +69,10 @@ service-nél `3000`-re. Ezután:
 A böngésző azonos originen marad. A web gateway a `/api/*`, `/health/*` és
 `/openapi/*` kéréseket az
 `http://${{api.RAILWAY_PRIVATE_DOMAIN}}:${{api.PORT}}` belső címre továbbítja.
+Az átjáró a `Cookie` és a különálló `Set-Cookie` fejléceket változtatás nélkül
+továbbítja. Az `/api/auth/csrf` válasz cache-elését `Cache-Control: no-store`
+fejléccel tiltja akkor is, ha egy köztes réteg ettől eltérő upstream
+cache-fejlécet adna.
 Az `/openapi/v1.json` továbbítása szándékos: így a smoke teszt a publikus
 útvonalon is bizonyítja, hogy Production módban `404` érkezik.
 

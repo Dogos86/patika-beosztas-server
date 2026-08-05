@@ -2,7 +2,7 @@
 // Bearer tokent nem használunk. Auth és CSRF token SOHA nem kerülhet
 // localStorage-be — a session cookie httpOnly, a CSRF a memóriában él.
 
-import { apiBaseUrl, clearCsrfToken, ensureCsrfToken } from "./csrf";
+import { apiBaseUrl, clearCsrfToken, ensureCsrfToken, refreshCsrfToken } from "./csrf";
 import { ApiError, mapErrorResponse, type ProblemDetails } from "./errors";
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -11,6 +11,7 @@ interface RequestOptions {
   method?: Method;
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined | null>;
+  headers?: Record<string, string>;
   /** Ha true (mutációknál igaz alapból), előbb CSRF tokent szerez. */
   csrf?: boolean;
   /** Ha 401 érkezik, hova irányítsunk. Alap: /login. */
@@ -51,14 +52,14 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   const isMutation = method !== "GET";
   const wantsCsrf = options.csrf ?? isMutation;
 
-  const doFetch = async (retriedCsrf: boolean): Promise<T> => {
+  const doFetch = async (retriedCsrf: boolean, retryToken?: string): Promise<T> => {
     const headers: Record<string, string> = {
       Accept: "application/json",
+      ...options.headers,
     };
     if (options.body !== undefined) headers["Content-Type"] = "application/json";
-    if (wantsCsrf) {
-      headers["X-CSRF-TOKEN"] = await ensureCsrfToken(retriedCsrf);
-    }
+    const csrfToken = wantsCsrf ? (retryToken ?? (await ensureCsrfToken())) : undefined;
+    if (csrfToken) headers["X-CSRF-TOKEN"] = csrfToken;
 
     let res: Response;
     try {
@@ -88,8 +89,17 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 
     // 403 INVALID_CSRF_TOKEN → egyszer új tokent kérünk és újrapróbáljuk.
     if (err.code === "INVALID_CSRF_TOKEN" && !retriedCsrf) {
-      clearCsrfToken();
-      return doFetch(true);
+      const refreshedToken = await refreshCsrfToken(csrfToken ?? "");
+      return doFetch(true, refreshedToken);
+    }
+
+    if (err.code === "INVALID_CSRF_TOKEN") {
+      throw new ApiError(
+        "INVALID_CSRF_TOKEN",
+        "A biztonsági munkamenet lejárt. Frissítsd az oldalt, majd próbáld újra.",
+        err.status,
+        { serverCode: err.serverCode },
+      );
     }
 
     throw err;
@@ -101,7 +111,8 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 export const httpClient = {
   get: <T>(path: string, query?: RequestOptions["query"]) =>
     apiFetch<T>(path, { method: "GET", query }),
-  post: <T>(path: string, body?: unknown) => apiFetch<T>(path, { method: "POST", body }),
+  post: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
+    apiFetch<T>(path, { method: "POST", body, headers }),
   put: <T>(path: string, body?: unknown) => apiFetch<T>(path, { method: "PUT", body }),
   del: <T>(path: string) => apiFetch<T>(path, { method: "DELETE" }),
 };

@@ -35,6 +35,7 @@ import type {
   DeclarationRequirementStatus,
   PayrollProfileStatus,
   ScheduleGenerationRun,
+  ShiftAssignment,
   ScheduleListItem,
   SchedulePlan,
   EmployeeScheduleMatrix,
@@ -382,12 +383,12 @@ export interface AdminScheduleService {
     scheduleId: string,
     shiftId: string,
     body: { expectedShiftVersion: number; expectedScheduleVersion: number; reason?: string },
-  ): Promise<SchedulePlan>;
+  ): Promise<ShiftAssignment>;
   unlockShift(
     scheduleId: string,
     shiftId: string,
     body: { expectedShiftVersion: number; expectedScheduleVersion: number; reason?: string },
-  ): Promise<SchedulePlan>;
+  ): Promise<ShiftAssignment>;
   rejectShift(
     scheduleId: string,
     shiftId: string,
@@ -397,7 +398,7 @@ export interface AdminScheduleService {
       reason: string;
       exclusionScope?: "Run" | "Schedule" | "Period";
     },
-  ): Promise<SchedulePlan>;
+  ): Promise<ShiftAssignment>;
   replaceShift(
     scheduleId: string,
     shiftId: string,
@@ -407,7 +408,7 @@ export interface AdminScheduleService {
       expectedScheduleVersion: number;
       reason: string;
     },
-  ): Promise<SchedulePlan>;
+  ): Promise<ShiftAssignment>;
   regenerate(scheduleId: string, input: RegenerateScheduleInput): Promise<ScheduleGenerationRun>;
   submitForReview(scheduleId: string, expectedVersion: number): Promise<SchedulePlan>;
   returnToDraft(scheduleId: string, expectedVersion: number): Promise<SchedulePlan>;

@@ -116,6 +116,7 @@ import type {
   ScheduleListItemResponseDto,
   SchedulePlanResponseDto,
   ScheduleVersionRequestDto,
+  ShiftAssignmentResponseDto,
   ShiftExplanationResponseDto,
   ShiftVersionRequestDto,
   ScheduleAlternativeResponseDto,
@@ -130,6 +131,7 @@ import {
   mapScheduleChangeFromBackend,
   mapScheduleListItemFromBackend,
   mapSchedulePlanFromBackend,
+  mapShiftAssignmentFromBackend,
   mapShiftExplanationFromBackend,
 } from "./mappers/schedule";
 import type { ScheduleAlternative } from "@/services/types";
@@ -173,11 +175,16 @@ const authService: Services["auth"] = {
   },
   async login(email, password) {
     const dto = await httpClient.post<SessionResponseDto>("/api/auth/login", { email, password });
+    // A login megváltoztatja az antiforgery tokenhez kötött identitást.
+    clearCsrfToken();
     return mapSessionFromBackend(dto);
   },
   async logout() {
-    await httpClient.post("/api/auth/logout");
-    clearCsrfToken();
+    try {
+      await httpClient.post("/api/auth/logout");
+    } finally {
+      clearCsrfToken();
+    }
   },
   async requestPasswordReset(_email) {
     // A backend jelenleg nem szállítja a password-reset endpointot; a UI
@@ -630,6 +637,7 @@ function makeHttpScheduleGenerationService(): ScheduleGenerationService {
       const dto = await httpClient.post<ScheduleGenerationRunResponseDto>(
         "/api/admin/schedule-generations",
         body,
+        { "Idempotency-Key": `schedule-generation-${crypto.randomUUID()}` },
       );
       return mapGenerationRunFromBackend(dto);
     },
@@ -678,13 +686,13 @@ function makeHttpAdminScheduleService(): AdminScheduleService {
     },
     async getMatrix(id) {
       const dto = await httpClient.get<EmployeeScheduleMatrixResponseDto>(
-        `/api/admin/schedules/${id}/matrix`,
+        `/api/admin/schedules/${id}/employee-matrix`,
       );
       return mapMatrixFromBackend(dto);
     },
     async getCoverage(id) {
       const dto = await httpClient.get<LocationCoverageResponseDto>(
-        `/api/admin/schedules/${id}/coverage`,
+        `/api/admin/schedules/${id}/location-coverage`,
       );
       return mapCoverageProjectionFromBackend(dto);
     },
@@ -731,18 +739,18 @@ function makeHttpAdminScheduleService(): AdminScheduleService {
       return explain ? mapShiftExplanationFromBackend(explain).alternatives : [];
     },
     async lockShift(scheduleId, shiftId, body) {
-      const dto = await httpClient.post<SchedulePlanResponseDto>(
+      const dto = await httpClient.post<ShiftAssignmentResponseDto>(
         `/api/admin/schedules/${scheduleId}/shifts/${shiftId}/lock`,
         shiftVer(body.expectedShiftVersion, body.expectedScheduleVersion, body.reason),
       );
-      return mapSchedulePlanFromBackend(dto);
+      return mapShiftAssignmentFromBackend(dto);
     },
     async unlockShift(scheduleId, shiftId, body) {
-      const dto = await httpClient.post<SchedulePlanResponseDto>(
+      const dto = await httpClient.post<ShiftAssignmentResponseDto>(
         `/api/admin/schedules/${scheduleId}/shifts/${shiftId}/unlock`,
         shiftVer(body.expectedShiftVersion, body.expectedScheduleVersion, body.reason),
       );
-      return mapSchedulePlanFromBackend(dto);
+      return mapShiftAssignmentFromBackend(dto);
     },
     async rejectShift(scheduleId, shiftId, body) {
       const req: RejectGeneratedSuggestionRequestDto = {
@@ -751,11 +759,11 @@ function makeHttpAdminScheduleService(): AdminScheduleService {
         reason: body.reason,
         exclusionScope: body.exclusionScope,
       };
-      const dto = await httpClient.post<SchedulePlanResponseDto>(
+      const dto = await httpClient.post<ShiftAssignmentResponseDto>(
         `/api/admin/schedules/${scheduleId}/shifts/${shiftId}/reject`,
         req,
       );
-      return mapSchedulePlanFromBackend(dto);
+      return mapShiftAssignmentFromBackend(dto);
     },
     async replaceShift(scheduleId, shiftId, body) {
       const req: ReplaceShiftRequestDto = {
@@ -764,11 +772,11 @@ function makeHttpAdminScheduleService(): AdminScheduleService {
         expectedScheduleVersion: body.expectedScheduleVersion,
         reason: body.reason,
       };
-      const dto = await httpClient.post<SchedulePlanResponseDto>(
+      const dto = await httpClient.post<ShiftAssignmentResponseDto>(
         `/api/admin/schedules/${scheduleId}/shifts/${shiftId}/replace`,
         req,
       );
-      return mapSchedulePlanFromBackend(dto);
+      return mapShiftAssignmentFromBackend(dto);
     },
     async regenerate(scheduleId, input: RegenerateScheduleInput) {
       const req: RegenerateScheduleRequestDto = {
@@ -783,19 +791,20 @@ function makeHttpAdminScheduleService(): AdminScheduleService {
       const dto = await httpClient.post<ScheduleGenerationRunResponseDto>(
         `/api/admin/schedules/${scheduleId}/regenerate`,
         req,
+        { "Idempotency-Key": `schedule-regeneration-${crypto.randomUUID()}` },
       );
       return mapGenerationRunFromBackend(dto);
     },
     async submitForReview(id, expectedVersion) {
       const dto = await httpClient.post<SchedulePlanResponseDto>(
-        `/api/admin/schedules/${id}/submit-for-review`,
+        `/api/admin/schedules/${id}/submit-review`,
         ver(expectedVersion),
       );
       return mapSchedulePlanFromBackend(dto);
     },
     async returnToDraft(id, expectedVersion) {
       const dto = await httpClient.post<SchedulePlanResponseDto>(
-        `/api/admin/schedules/${id}/return-to-draft`,
+        `/api/admin/schedules/${id}/return-draft`,
         ver(expectedVersion),
       );
       return mapSchedulePlanFromBackend(dto);
@@ -826,6 +835,7 @@ function makeHttpAdminScheduleService(): AdminScheduleService {
       const dto = await httpClient.post<SchedulePlanResponseDto>(
         `/api/admin/schedules/${id}/clone-draft`,
         body,
+        { "Idempotency-Key": `schedule-clone-${crypto.randomUUID()}` },
       );
       return mapSchedulePlanFromBackend(dto);
     },

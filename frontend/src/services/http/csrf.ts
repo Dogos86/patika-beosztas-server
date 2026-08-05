@@ -12,13 +12,20 @@ export function apiBaseUrl(): string {
 
 /** Lekéri és cache-eli a CSRF tokent. `force=true` esetén friss tokent kér. */
 export async function ensureCsrfToken(force = false): Promise<string> {
+  // A force refresh-eknek is ugyanazt a folyamatban levő kérést kell
+  // megosztaniuk. Különben két párhuzamos INVALID_CSRF_TOKEN válasz két
+  // cookie/token párt kérhet, és az utolsó Set-Cookie érvényteleníti a másik
+  // kéréshez tartozó request tokent.
+  if (inflight) return inflight;
   if (!force && cached) return cached;
-  if (!force && inflight) return inflight;
-  inflight = (async () => {
+
+  if (force) cached = null;
+  const request = (async () => {
     const res = await fetch(`${apiBaseUrl()}/api/auth/csrf`, {
       method: "GET",
       credentials: "include",
       headers: { Accept: "application/json" },
+      cache: "no-store",
     });
     if (!res.ok) throw new Error(`CSRF token nem szerezhető meg (${res.status}).`);
     const body = (await res.json()) as { requestToken?: string };
@@ -26,11 +33,21 @@ export async function ensureCsrfToken(force = false): Promise<string> {
     cached = body.requestToken;
     return cached;
   })();
+  inflight = request;
   try {
-    return await inflight;
+    return await request;
   } finally {
-    inflight = null;
+    if (inflight === request) inflight = null;
   }
+}
+
+/**
+ * INVALID_CSRF_TOKEN után csak akkor indít új hálózati frissítést, ha közben
+ * egy másik kérés még nem cserélte le az elutasított tokent.
+ */
+export function refreshCsrfToken(rejectedToken: string): Promise<string> {
+  if (cached && cached !== rejectedToken) return Promise.resolve(cached);
+  return ensureCsrfToken(true);
 }
 
 export function clearCsrfToken() {

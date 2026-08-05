@@ -20,6 +20,8 @@ interface Call {
   url: string;
   method: string;
   body: unknown;
+  credentials: RequestCredentials | undefined;
+  headers: Headers;
 }
 
 function stubFetch(handler: (call: Call) => Response) {
@@ -31,12 +33,21 @@ function stubFetch(handler: (call: Call) => Response) {
       url,
       method: init?.method ?? "GET",
       body: init?.body ? JSON.parse(String(init.body)) : undefined,
+      credentials: init?.credentials,
+      headers: new Headers(init?.headers),
     };
     calls.push(call);
     return handler(call);
   });
   vi.stubGlobal("fetch", fetchMock);
   return calls;
+}
+
+function expectCentralCsrf(calls: Call[]) {
+  calls.forEach((call) => {
+    expect(call.credentials).toBe("include");
+    expect(call.headers.get("X-CSRF-TOKEN")).toBe("t");
+  });
 }
 
 const summaryDto = {
@@ -102,6 +113,24 @@ const runDto = {
   version: "1",
 };
 
+const shiftDto = {
+  id: "s1",
+  employeeId: "e1",
+  employeeDisplayName: "Anna",
+  locationId: "l1",
+  locationName: "Fő",
+  date: "2026-01-05",
+  startTime: "08:00:00",
+  endTime: "16:00:00",
+  source: "Generated",
+  isLocked: false,
+  generatedByRunId: "run1",
+  replacesShiftId: null,
+  changeKind: "New",
+  segments: [],
+  version: "2",
+};
+
 beforeEach(() => {
   (import.meta.env as Record<string, string>).VITE_API_URL = "http://api.test";
   clearCsrfToken();
@@ -141,6 +170,8 @@ describe("generálás start / poll / cancel", () => {
     expect(calls[0].method).toBe("POST");
     expect(calls[0].url).toContain("/api/admin/schedule-generations");
     expect(calls[0].body).toMatchObject({ periodStart: "2026-01-05", deterministicSeed: 42 });
+    expect(calls[0].headers.get("Idempotency-Key")).toMatch(/^schedule-generation-/);
+    expectCentralCsrf(calls);
     expect(run.status).toBe("Queued");
     expect(run.version).toBe(1);
   });
@@ -156,7 +187,37 @@ describe("generálás start / poll / cancel", () => {
     const calls = stubFetch(() => json(200, { ...runDto, status: "Cancelled", version: "2" }));
     const run = await httpServices.scheduleGeneration.cancel("run1", 1);
     expect(calls[0].body).toEqual({ expectedVersion: 1 });
+    expectCentralCsrf(calls);
     expect(run.status).toBe("Cancelled");
+  });
+
+  it("a generálási service a központi egyszeri CSRF-frissítést használja", async () => {
+    let csrfCalls = 0;
+    const mutationCalls: Array<{ credentials?: RequestCredentials; headers: Headers }> = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/api/auth/csrf")) {
+        csrfCalls++;
+        return json(200, { requestToken: `t${csrfCalls}` });
+      }
+      mutationCalls.push({ credentials: init?.credentials, headers: new Headers(init?.headers) });
+      return mutationCalls.length === 1
+        ? json(400, { code: "INVALID_CSRF_TOKEN" })
+        : json(202, runDto);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await httpServices.scheduleGeneration.start({
+      periodStart: "2026-01-05",
+      periodEnd: "2026-01-11",
+    });
+
+    expect(csrfCalls).toBe(2);
+    expect(mutationCalls).toHaveLength(2);
+    expect(mutationCalls.map((call) => call.credentials)).toEqual(["include", "include"]);
+    expect(mutationCalls.map((call) => call.headers.get("X-CSRF-TOKEN"))).toEqual(["t1", "t2"]);
+    expect(mutationCalls[0].headers.get("Idempotency-Key")).toBe(
+      mutationCalls[1].headers.get("Idempotency-Key"),
+    );
   });
 });
 
@@ -229,8 +290,8 @@ describe("schedule list / detail / projekciók", () => {
     const changes = await httpServices.adminSchedule.listChanges("sch1");
     expect(changes[0].changeKind).toBe("New");
     expect(calls.map((c) => c.url.split("/").pop())).toEqual([
-      "matrix",
-      "coverage",
+      "employee-matrix",
+      "location-coverage",
       "issues",
       "changes",
     ]);
@@ -267,7 +328,7 @@ describe("schedule list / detail / projekciók", () => {
 
 describe("shift korrekciók", () => {
   it("lock / unlock / reject / replace verziókkal", async () => {
-    const calls = stubFetch(() => json(200, planDto));
+    const calls = stubFetch(() => json(200, shiftDto));
     const body = { expectedShiftVersion: 2, expectedScheduleVersion: 4 };
     await httpServices.adminSchedule.lockShift("sch1", "s1", body);
     await httpServices.adminSchedule.unlockShift("sch1", "s1", body);
@@ -285,6 +346,7 @@ describe("shift korrekciók", () => {
     ]);
     calls.forEach((c) => expect(c.body).toMatchObject({ expectedScheduleVersion: 4 }));
     expect(calls[3].body).toMatchObject({ replacementEmployeeId: "e2" });
+    expectCentralCsrf(calls);
   });
 
   it("409 konfliktus hibát dob, nem ad hamis sikert", async () => {
@@ -326,6 +388,8 @@ describe("részleges újragenerálás – minden scope", () => {
       expectedVersion: 4,
       scope: { type: "Issues", issueIds: ["i1", "i2"] },
     });
+    expect(calls[0].headers.get("Idempotency-Key")).toMatch(/^schedule-regeneration-/);
+    expectCentralCsrf(calls);
   });
 });
 
@@ -339,8 +403,8 @@ describe("workflow", () => {
     await httpServices.adminSchedule.archive("sch1", 8);
     await httpServices.adminSchedule.cloneDraft("sch1", 9);
     expect(calls.map((c) => c.url.split("/").pop())).toEqual([
-      "submit-for-review",
-      "return-to-draft",
+      "submit-review",
+      "return-draft",
       "approve",
       "publish",
       "archive",
@@ -349,6 +413,8 @@ describe("workflow", () => {
     expect(calls.map((c) => (c.body as { expectedVersion: number }).expectedVersion)).toEqual([
       4, 5, 6, 7, 8, 9,
     ]);
+    expect(calls[5].headers.get("Idempotency-Key")).toMatch(/^schedule-clone-/);
+    expectCentralCsrf(calls);
   });
 
   it("blocking issue mellett a publish backend hibája magyarul jelenik meg", async () => {

@@ -118,3 +118,18 @@ Frissítés és ellenőrzés:
 .\eng\export-openapi.ps1
 Get-FileHash .\contracts\openapi.phase3a.json -Algorithm SHA256
 ```
+
+## Railway pilot CSRF-hardening
+
+A frontend összes védett schedule-mutációja ugyanazt a cookie-s, központi HTTP
+klienst használja. A kliens `credentials: "include"` beállítással küld, a
+CSRF-tokent memóriában tartja, login/logout után törli, párhuzamos
+tokenfrissítéskor közös Promise-t használ, és `INVALID_CSRF_TOKEN` után csak
+egyszer küldi újra az eredeti kérést. A generálás, újragenerálás és Draft-klón
+idempotenciakulcsa az újrapróbálás során változatlan.
+
+Az API és a Railway web gateway az `/api/auth/csrf` választ `no-store`
+fejléccel adja; a gateway a bejövő `Cookie` és a különálló kimenő `Set-Cookie`
+fejléceket veszteség nélkül továbbítja. A session-életciklus integrációs teszt
+a login → CSRF → employee mutation → generation → regeneration → logout/login
+→ új generation folyamatot PostgreSQL felett ellenőrzi.
