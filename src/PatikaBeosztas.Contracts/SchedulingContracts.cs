@@ -76,6 +76,31 @@ public sealed record ScheduleSolverStatisticsResponse(
     long? Conflicts,
     long? Branches);
 
+public sealed record ScheduleGenerationReadinessCountsResponse(
+    int ActiveLocationCount,
+    int OpeningIntervalCount,
+    int ActiveShiftTemplateCount,
+    int ApplicableShiftTemplateCount,
+    int CoverageRequirementCount,
+    int ActiveEmployeeCount,
+    int SchedulableEmployeeCount,
+    int AutoFillEmployeeCount,
+    int LocationAssignedEmployeeCount,
+    int WorkProfileEmployeeCount,
+    int CapableEmployeeCount,
+    int CandidateOptionCount);
+
+public sealed record ScheduleGenerationPreflightIssueResponse(
+    string Code,
+    ScheduleIssueSeverity Severity,
+    string Message,
+    string? SettingsPath);
+
+public sealed record ScheduleGenerationPreflightResponse(
+    bool CanStart,
+    ScheduleGenerationReadinessCountsResponse Counts,
+    IReadOnlyList<ScheduleGenerationPreflightIssueResponse> Issues);
+
 public sealed record ScheduleListItemResponse(
     Guid Id,
     DateOnly PeriodStart,
@@ -163,6 +188,7 @@ public sealed record EmployeeScheduleRowResponse(
     IReadOnlyList<EmployeeScheduleDayCellResponse> Days,
     int AssignedMinutes,
     int TargetMinutes,
+    bool HasWorkProfile,
     int PlannedOvertimeMinutes,
     int WeekendShiftCount,
     int EveningShiftCount,
@@ -188,6 +214,7 @@ public sealed record LocationCoverageResponse(
     DateOnly PeriodStart,
     DateOnly PeriodEnd,
     uint ScheduleVersion,
+    bool HasConfiguredRequirements,
     IReadOnlyList<LocationCoverageSlotResponse> Slots);
 
 public sealed record LocationCoverageSlotResponse(

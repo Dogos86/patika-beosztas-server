@@ -692,7 +692,7 @@ export interface ScheduleGenerationRun {
   deterministicSeed: number | null;
   inputSnapshotHash: string;
   objectiveValue: number | null;
-  statistics: ScheduleSolverStatistics;
+  statistics: ScheduleSolverStatistics | null;
   errorCode: string | null;
   redactedError: string | null;
   version: number;
@@ -758,6 +758,7 @@ export interface EmployeeScheduleRow {
   days: EmployeeScheduleDayCell[];
   assignedMinutes: number;
   targetMinutes: number;
+  hasWorkProfile: boolean;
   plannedOvertimeMinutes: number;
   weekendShiftCount: number;
   eveningShiftCount: number;
@@ -794,7 +795,36 @@ export interface LocationCoverage {
   periodStart: string;
   periodEnd: string;
   scheduleVersion: number;
+  hasConfiguredRequirements: boolean;
   slots: LocationCoverageSlot[];
+}
+
+export interface ScheduleGenerationDiagnosticCounts {
+  activeLocationCount: number;
+  openingIntervalCount: number;
+  activeShiftTemplateCount: number;
+  applicableShiftTemplateCount: number;
+  coverageRequirementCount: number;
+  activeEmployeeCount: number;
+  schedulableEmployeeCount: number;
+  autoFillEmployeeCount: number;
+  locationAssignedEmployeeCount: number;
+  workProfileEmployeeCount: number;
+  capableEmployeeCount: number;
+  candidateOptionCount: number;
+}
+
+export interface ScheduleGenerationPreflightIssue {
+  code: string;
+  severity: IssueSeverity;
+  message: string;
+  settingsPath: string | null;
+}
+
+export interface ScheduleGenerationPreflight {
+  canStart: boolean;
+  counts: ScheduleGenerationDiagnosticCounts;
+  issues: ScheduleGenerationPreflightIssue[];
 }
 
 export interface ScheduleIssueRow {

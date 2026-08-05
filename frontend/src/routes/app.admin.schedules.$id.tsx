@@ -1,6 +1,6 @@
 import { createFileRoute, useSearch, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { services } from "@/services";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -20,7 +20,13 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { fmtDate, capabilityLabel, timeTypeLabel } from "@/lib/format";
 import { reasonLabel, issueLabel } from "@/lib/schedule-reason-labels";
-import { useScheduleRunPolling } from "@/hooks/use-schedule-run-polling";
+import { isTerminalRunStatus, useScheduleRunPolling } from "@/hooks/use-schedule-run-polling";
+import {
+  isConcurrencyError,
+  regenerateWithLatestScheduleVersion,
+  refreshScheduleAfterGeneration,
+  SCHEDULE_REFRESHED_MESSAGE,
+} from "@/lib/schedule-generation-flow";
 import type {
   ScheduleAlternative,
   ShiftAssignmentExplanation,
@@ -60,31 +66,34 @@ function ScheduleWorkspacePage() {
   const qc = useQueryClient();
   const [selectedShift, setSelectedShift] = useState<ShiftAssignment | null>(null);
   const [regenOpen, setRegenOpen] = useState(false);
+  const [concurrencyNotice, setConcurrencyNotice] = useState<string | null>(null);
+  const refreshedRunId = useRef<string | null>(null);
 
   const runPoll = useScheduleRunPolling(search.run);
+  const runIsTerminal = !!runPoll.data && isTerminalRunStatus(runPoll.data.status);
 
   const plan = useQuery({
-    queryKey: ["schedule", id, runPoll.data?.status ?? "static"],
+    queryKey: ["schedule", id, "detail"],
     queryFn: () => services.adminSchedule.get(id),
-    enabled: !runPoll.isPolling && !denied,
+    enabled: (!search.run || runIsTerminal) && !denied,
   });
   const matrix = useQuery({
-    queryKey: ["schedule", id, "matrix", plan.data?.version],
+    queryKey: ["schedule", id, "matrix"],
     queryFn: () => services.adminSchedule.getMatrix(id),
     enabled: !!plan.data,
   });
   const coverage = useQuery({
-    queryKey: ["schedule", id, "coverage", plan.data?.version],
+    queryKey: ["schedule", id, "coverage"],
     queryFn: () => services.adminSchedule.getCoverage(id),
     enabled: !!plan.data,
   });
   const issues = useQuery({
-    queryKey: ["schedule", id, "issues", plan.data?.version],
+    queryKey: ["schedule", id, "issues"],
     queryFn: () => services.adminSchedule.listIssues(id),
     enabled: !!plan.data,
   });
   const changes = useQuery({
-    queryKey: ["schedule", id, "changes", plan.data?.version],
+    queryKey: ["schedule", id, "changes"],
     queryFn: () => services.adminSchedule.listChanges(id),
     enabled: !!plan.data,
   });
@@ -92,6 +101,13 @@ function ScheduleWorkspacePage() {
   const refresh = async () => {
     await qc.invalidateQueries({ queryKey: ["schedule", id] });
   };
+
+  useEffect(() => {
+    const run = runPoll.data;
+    if (run?.status !== "Succeeded" || refreshedRunId.current === run.id) return;
+    refreshedRunId.current = run.id;
+    void refreshScheduleAfterGeneration(qc, id);
+  }, [id, qc, runPoll.data]);
 
   const submit = useMutation({
     mutationFn: (v: number) => services.adminSchedule.submitForReview(id, v),
@@ -113,6 +129,10 @@ function ScheduleWorkspacePage() {
     mutationFn: (v: number) => services.adminSchedule.archive(id, v),
     onSuccess: refresh,
   });
+  const archiveEmptyDraft = useMutation({
+    mutationFn: (v: number) => services.adminSchedule.archiveEmptyDraft(id, v),
+    onSuccess: refresh,
+  });
   const cloneDraft = useMutation({
     mutationFn: (v: number) => services.adminSchedule.cloneDraft(id, v),
     onSuccess: (p: SchedulePlan) => {
@@ -121,13 +141,18 @@ function ScheduleWorkspacePage() {
   });
   const regenerate = useMutation({
     mutationFn: (scope: RegenerationScopeInput) =>
-      services.adminSchedule.regenerate(id, {
-        scope,
-        expectedVersion: plan.data!.version,
-      }),
+      regenerateWithLatestScheduleVersion(qc, services.adminSchedule, id, scope),
     onSuccess: (run) => {
+      setConcurrencyNotice(null);
       setRegenOpen(false);
       navigate({ to: "/app/admin/schedules/$id", params: { id }, search: { run: run.id } });
+    },
+    onError: async (error) => {
+      if (!isConcurrencyError(error)) return;
+      setRegenOpen(false);
+      await refreshScheduleAfterGeneration(qc, id);
+      setConcurrencyNotice(SCHEDULE_REFRESHED_MESSAGE);
+      regenerate.reset();
     },
   });
   const cancelRun = useMutation({
@@ -135,7 +160,7 @@ function ScheduleWorkspacePage() {
     onSuccess: () => runPoll.refetch(),
   });
 
-  if (runPoll.isPolling) {
+  if (search.run && (runPoll.isLoading || runPoll.isPolling)) {
     return (
       <div>
         <PageHeader title="Generálás fut…" description={`Futás ID: ${runPoll.data?.id}`} />
@@ -145,6 +170,15 @@ function ScheduleWorkspacePage() {
             <p className="text-sm text-muted-foreground">
               Solver: {runPoll.data?.solverStatus} · algoritmus {runPoll.data?.algorithmVersion}
             </p>
+            {runPoll.data?.statistics ? (
+              <p className="text-sm text-muted-foreground">
+                {runPoll.data.statistics.candidateOptionCount} jelölt ·{" "}
+                {runPoll.data.statistics.variableCount} változó ·{" "}
+                {runPoll.data.statistics.constraintCount} korlát
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">Az optimalizáló még dolgozik.</p>
+            )}
             {runPoll.error && (
               <p className="text-sm text-destructive">
                 Hálózati hiba a futás lekérdezésekor — újrapróbálkozás folyamatban.
@@ -190,11 +224,8 @@ function ScheduleWorkspacePage() {
         <Card>
           <CardContent className="p-6 space-y-2">
             <p className="text-sm text-destructive">
-              {runPoll.data.errorCode ?? "Ismeretlen hiba"}
+              A generálás technikai okból sikertelen. Ellenőrizd a beállításokat, majd próbáld újra.
             </p>
-            {runPoll.data.redactedError && (
-              <p className="text-xs text-muted-foreground">{runPoll.data.redactedError}</p>
-            )}
             <Button asChild variant="outline">
               <Link to="/app/admin/schedules">Vissza</Link>
             </Button>
@@ -216,6 +247,7 @@ function ScheduleWorkspacePage() {
     errText(approve.error) ??
     errText(publish.error) ??
     errText(archive.error) ??
+    errText(archiveEmptyDraft.error) ??
     errText(cloneDraft.error) ??
     errText(regenerate.error);
 
@@ -270,6 +302,16 @@ function ScheduleWorkspacePage() {
                 Archiválás
               </Button>
             )}
+            {p.status === "Draft" && p.shifts.length === 0 && canManage && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={archiveEmptyDraft.isPending}
+                onClick={() => archiveEmptyDraft.mutate(p.version)}
+              >
+                Üres draft archiválása
+              </Button>
+            )}
             {(isPublished || p.status === "Archived" || p.status === "Approved") && canManage && (
               <Button
                 size="sm"
@@ -285,7 +327,7 @@ function ScheduleWorkspacePage() {
                 size="sm"
                 variant="outline"
                 onClick={() => setRegenOpen(true)}
-                disabled={regenerate.isPending}
+                disabled={regenerate.isPending || plan.isFetching}
               >
                 Újragenerálás
               </Button>
@@ -295,6 +337,21 @@ function ScheduleWorkspacePage() {
       />
 
       {workflowError && <p className="mt-2 text-sm text-destructive">{workflowError}</p>}
+      {concurrencyNotice && <p className="mt-2 text-sm text-amber-700">{concurrencyNotice}</p>}
+      {runPoll.data?.status === "Succeeded" && (
+        <Card className="mt-2 border-emerald-200 bg-emerald-50">
+          <CardContent className="p-3 text-sm text-emerald-900">
+            <p className="font-medium">Elkészült</p>
+            {runPoll.data.statistics && (
+              <p className="text-xs">
+                {runPoll.data.statistics.candidateOptionCount} jelölt ·{" "}
+                {runPoll.data.statistics.variableCount} változó ·{" "}
+                {runPoll.data.statistics.constraintCount} korlát
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
       {hasBlocking && (
         <p className="mt-2 text-sm text-destructive">
           {p.summary.blockingIssueCount} blokkoló probléma — jóváhagyás és publikálás tiltva.
@@ -306,7 +363,10 @@ function ScheduleWorkspacePage() {
         </p>
       )}
 
-      <SummaryBar summary={p.summary} />
+      <SummaryBar
+        summary={p.summary}
+        hasCoverageRequirements={coverage.data?.hasConfiguredRequirements}
+      />
 
       <Tabs defaultValue="employees" className="mt-4">
         <TabsList>
@@ -326,8 +386,11 @@ function ScheduleWorkspacePage() {
                     <div className="flex items-center justify-between mb-2">
                       <p className="font-semibold">{row.employeeDisplayName}</p>
                       <p className="text-xs text-muted-foreground">
-                        {Math.round(row.assignedMinutes / 60)}h /{" "}
-                        {Math.round(row.targetMinutes / 60)}h
+                        {!row.hasWorkProfile || row.targetMinutes <= 0
+                          ? "Hiányzó munkaidőprofil"
+                          : `${Math.round(row.assignedMinutes / 60)}h / ${Math.round(
+                              row.targetMinutes / 60,
+                            )}h`}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-1">
@@ -355,6 +418,9 @@ function ScheduleWorkspacePage() {
 
         <TabsContent value="coverage" className="mt-4">
           {coverage.isLoading && <LoadingState />}
+          {coverage.data && !coverage.data.hasConfiguredRequirements && (
+            <p className="text-sm text-amber-700">Nincs beállított lefedettségi követelmény.</p>
+          )}
           {coverage.data && (
             <div className="space-y-1">
               {coverage.data.slots.map((slot, idx) => (
@@ -452,8 +518,7 @@ function ScheduleWorkspacePage() {
 
 function errText(e: unknown): string | null {
   if (e instanceof ApiError) return e.message;
-  if (e instanceof Error) return e.message;
-  return null;
+  return e ? "A művelet nem sikerült. Próbáld újra." : null;
 }
 
 function changeKindLabel(kind: string) {
@@ -683,11 +748,21 @@ function RegenerateDialog({
 
 function SummaryBar({
   summary,
+  hasCoverageRequirements,
 }: {
   summary: import("@/services/types").ScheduleGenerationSummary;
+  hasCoverageRequirements: boolean | undefined;
 }) {
   const cells: { label: string; value: string | number }[] = [
-    { label: "Lefedettség", value: `${summary.blockingCoveragePercent}%` },
+    {
+      label: "Lefedettség",
+      value:
+        hasCoverageRequirements === false
+          ? "Nincs beállítva"
+          : hasCoverageRequirements === undefined
+            ? "Ellenőrzés…"
+            : `${summary.blockingCoveragePercent}%`,
+    },
     { label: "Blokkoló", value: summary.blockingIssueCount },
     { label: "Figyelmeztető", value: summary.warningIssueCount },
     { label: "Preferencia", value: `${summary.preferenceFulfillmentPercent}%` },

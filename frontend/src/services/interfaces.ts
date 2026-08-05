@@ -46,6 +46,7 @@ import type {
   ScheduleAlternative,
   RegenerationScopeInput,
   PendingLeaveHandling,
+  ScheduleGenerationPreflight,
 } from "./types";
 import type { OwnScheduleView } from "./http/mappers/schedule";
 import type { ScheduleGenerationWeightsRequestDto } from "./http/dto/schedule";
@@ -355,6 +356,7 @@ export interface StartScheduleGenerationInput {
 }
 
 export interface ScheduleGenerationService {
+  preflight(input: StartScheduleGenerationInput): Promise<ScheduleGenerationPreflight>;
   start(input: StartScheduleGenerationInput): Promise<ScheduleGenerationRun>;
   get(runId: string): Promise<ScheduleGenerationRun>;
   cancel(runId: string, expectedVersion: number): Promise<ScheduleGenerationRun>;
@@ -415,6 +417,7 @@ export interface AdminScheduleService {
   approve(scheduleId: string, expectedVersion: number): Promise<SchedulePlan>;
   publish(scheduleId: string, expectedVersion: number): Promise<SchedulePlan>;
   archive(scheduleId: string, expectedVersion: number): Promise<SchedulePlan>;
+  archiveEmptyDraft(scheduleId: string, expectedVersion: number): Promise<SchedulePlan>;
   cloneDraft(scheduleId: string, expectedVersion: number): Promise<SchedulePlan>;
 }
 

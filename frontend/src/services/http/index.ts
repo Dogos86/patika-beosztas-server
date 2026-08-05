@@ -112,6 +112,7 @@ import type {
   ReplaceShiftRequestDto,
   ScheduleChangeResponseDto,
   ScheduleGenerationRunResponseDto,
+  ScheduleGenerationPreflightResponseDto,
   ScheduleIssueResponseDto,
   ScheduleListItemResponseDto,
   SchedulePlanResponseDto,
@@ -124,6 +125,7 @@ import type {
 import {
   mapCoverageProjectionFromBackend,
   mapGenerationRunFromBackend,
+  mapGenerationPreflightFromBackend,
   mapIssueFromBackend,
   mapMatrixFromBackend,
   mapOwnScheduleFromBackend,
@@ -134,7 +136,7 @@ import {
   mapShiftAssignmentFromBackend,
   mapShiftExplanationFromBackend,
 } from "./mappers/schedule";
-import type { ScheduleAlternative } from "@/services/types";
+import type { ScheduleAlternative, ScheduleGenerationRun } from "@/services/types";
 import type { WorkPreferenceResponseDto } from "./dto/work-preference";
 import {
   mapWorkPreferenceDeactivateRequest,
@@ -623,23 +625,47 @@ export const httpServices: Services = {
 };
 
 function makeHttpScheduleGenerationService(): ScheduleGenerationService {
+  let startInFlight: Promise<ScheduleGenerationRun> | null = null;
+
   return {
-    async start(input: StartScheduleGenerationInput) {
-      const body: CreateScheduleGenerationRequestDto = {
-        periodStart: input.periodStart,
-        periodEnd: input.periodEnd,
-        deterministicSeed: input.deterministicSeed ?? null,
-        maxSolveSeconds: input.maxSolveSeconds ?? null,
-        workerCount: input.workerCount ?? null,
-        pendingLeaveHandling: input.pendingLeaveHandling,
-        weights: input.weights ?? null,
-      };
-      const dto = await httpClient.post<ScheduleGenerationRunResponseDto>(
-        "/api/admin/schedule-generations",
-        body,
-        { "Idempotency-Key": `schedule-generation-${crypto.randomUUID()}` },
+    async preflight(input: StartScheduleGenerationInput) {
+      const dto = await httpClient.get<ScheduleGenerationPreflightResponseDto>(
+        "/api/admin/schedule-generations/preflight",
+        { periodStart: input.periodStart, periodEnd: input.periodEnd },
       );
-      return mapGenerationRunFromBackend(dto);
+      return mapGenerationPreflightFromBackend(dto);
+    },
+    start(input: StartScheduleGenerationInput) {
+      if (startInFlight) return startInFlight;
+
+      const idempotencyKey = `schedule-generation-${crypto.randomUUID()}`;
+      const request = (async () => {
+        const body: CreateScheduleGenerationRequestDto = {
+          periodStart: input.periodStart,
+          periodEnd: input.periodEnd,
+          deterministicSeed: input.deterministicSeed ?? null,
+          maxSolveSeconds: input.maxSolveSeconds ?? null,
+          workerCount: input.workerCount ?? null,
+          pendingLeaveHandling: input.pendingLeaveHandling,
+          weights: input.weights ?? null,
+        };
+        const dto = await httpClient.post<ScheduleGenerationRunResponseDto>(
+          "/api/admin/schedule-generations",
+          body,
+          { "Idempotency-Key": idempotencyKey },
+        );
+        return mapGenerationRunFromBackend(dto);
+      })();
+      startInFlight = request;
+      request.then(
+        () => {
+          if (startInFlight === request) startInFlight = null;
+        },
+        () => {
+          if (startInFlight === request) startInFlight = null;
+        },
+      );
+      return request;
     },
     async get(runId: string) {
       const dto = await httpClient.get<ScheduleGenerationRunResponseDto>(
@@ -659,6 +685,7 @@ function makeHttpScheduleGenerationService(): ScheduleGenerationService {
 }
 
 function makeHttpAdminScheduleService(): AdminScheduleService {
+  const regenerationInFlight = new Map<string, Promise<ScheduleGenerationRun>>();
   const ver = (n: number): ScheduleVersionRequestDto => ({ expectedVersion: n });
   const shiftVer = (
     expectedShiftVersion: number,
@@ -778,22 +805,42 @@ function makeHttpAdminScheduleService(): AdminScheduleService {
       );
       return mapShiftAssignmentFromBackend(dto);
     },
-    async regenerate(scheduleId, input: RegenerateScheduleInput) {
-      const req: RegenerateScheduleRequestDto = {
-        scope: mapRegenerationScopeToBackend(input.scope),
-        expectedVersion: input.expectedVersion,
-        deterministicSeed: input.deterministicSeed ?? null,
-        maxSolveSeconds: input.maxSolveSeconds ?? null,
-        workerCount: input.workerCount ?? null,
-        pendingLeaveHandling: input.pendingLeaveHandling,
-        weights: input.weights ?? null,
-      };
-      const dto = await httpClient.post<ScheduleGenerationRunResponseDto>(
-        `/api/admin/schedules/${scheduleId}/regenerate`,
-        req,
-        { "Idempotency-Key": `schedule-regeneration-${crypto.randomUUID()}` },
+    regenerate(scheduleId, input: RegenerateScheduleInput) {
+      const inFlight = regenerationInFlight.get(scheduleId);
+      if (inFlight) return inFlight;
+
+      const idempotencyKey = `schedule-regeneration-${crypto.randomUUID()}`;
+      const request = (async () => {
+        const req: RegenerateScheduleRequestDto = {
+          scope: mapRegenerationScopeToBackend(input.scope),
+          expectedVersion: input.expectedVersion,
+          deterministicSeed: input.deterministicSeed ?? null,
+          maxSolveSeconds: input.maxSolveSeconds ?? null,
+          workerCount: input.workerCount ?? null,
+          pendingLeaveHandling: input.pendingLeaveHandling,
+          weights: input.weights ?? null,
+        };
+        const dto = await httpClient.post<ScheduleGenerationRunResponseDto>(
+          `/api/admin/schedules/${scheduleId}/regenerate`,
+          req,
+          { "Idempotency-Key": idempotencyKey },
+        );
+        return mapGenerationRunFromBackend(dto);
+      })();
+      regenerationInFlight.set(scheduleId, request);
+      request.then(
+        () => {
+          if (regenerationInFlight.get(scheduleId) === request) {
+            regenerationInFlight.delete(scheduleId);
+          }
+        },
+        () => {
+          if (regenerationInFlight.get(scheduleId) === request) {
+            regenerationInFlight.delete(scheduleId);
+          }
+        },
       );
-      return mapGenerationRunFromBackend(dto);
+      return request;
     },
     async submitForReview(id, expectedVersion) {
       const dto = await httpClient.post<SchedulePlanResponseDto>(
@@ -826,6 +873,13 @@ function makeHttpAdminScheduleService(): AdminScheduleService {
     async archive(id, expectedVersion) {
       const dto = await httpClient.post<SchedulePlanResponseDto>(
         `/api/admin/schedules/${id}/archive`,
+        ver(expectedVersion),
+      );
+      return mapSchedulePlanFromBackend(dto);
+    },
+    async archiveEmptyDraft(id, expectedVersion) {
+      const dto = await httpClient.post<SchedulePlanResponseDto>(
+        `/api/admin/schedules/${id}/archive-empty-draft`,
         ver(expectedVersion),
       );
       return mapSchedulePlanFromBackend(dto);

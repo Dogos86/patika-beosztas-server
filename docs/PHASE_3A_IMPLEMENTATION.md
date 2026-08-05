@@ -110,7 +110,7 @@ A dokumentum runtime export:
 - verzió: `0.5.0-phase3a`;
 - fájl: `contracts/openapi.phase3a.json`;
 - SHA-256:
-  `d414791f68cf5aa188511d834690d2900ac2f05132b5179620fbeb87446e93cb`.
+  `35d940513265f6b61d01949ad25495d2f49b585a3c5296f1d465940533e85131`.
 
 Frissítés és ellenőrzés:
 
@@ -133,3 +133,23 @@ fejléccel adja; a gateway a bejövő `Cookie` és a különálló kimenő `Set-
 fejléceket veszteség nélkül továbbítja. A session-életciklus integrációs teszt
 a login → CSRF → employee mutation → generation → regeneration → logout/login
 → új generation folyamatot PostgreSQL felett ellenőrzi.
+
+## Railway pilot generálási életciklus
+
+A generálási run statisztikája `Queued` és `Running` állapotban szándékosan
+nullable. A frontend ilyenkor pollolja a runt, „Az optimalizáló még dolgozik.”
+állapotot mutat, majd terminális siker esetén frissíti a listát, a részletet, a
+dolgozói mátrixot, a lefedettséget, az issue-kat és a változásokat.
+
+Az indítás előtti preflight strukturált bemeneti darabszámokat és blokkoló
+issue-kat ad. Nulla jelölt esetén a `NO_CANDIDATE_OPTIONS` issue tartalmazza a
+telephely-, nyitvatartás-, sablon-, lefedettség-, jogosult dolgozó-,
+munkaidőprofil-, telephely-hozzárendelés- és képességdarabszámokat. Blokkoló
+preflight mellett nem jön létre üres Draft. A felhasználó a hiányzó
+munkaidőprofilt és lefedettséget közvetlen beállítási hivatkozással látja.
+
+Az indítás és az újragenerálás kliensoldali in-flight deduplikációt és stabil
+idempotenciakulcsot használ. Az újragenerálás mindig a legfrissebb tervverziót
+kéri le; `409` esetén bezárja és alaphelyzetbe állítja a modalt, majd teljesen
+újratölti a beosztást. A `ManageSchedules` jogosultságú admin az igazoltan üres,
+verzióegyező Draftot külön, auditált végponton archiválhatja.

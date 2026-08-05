@@ -150,7 +150,7 @@ export interface ScheduleGenerationRunResponseDto {
   deterministicSeed: number | string | null;
   inputSnapshotHash: string;
   objectiveValue: IntWire | null;
-  statistics: ScheduleSolverStatisticsResponseDto;
+  statistics: ScheduleSolverStatisticsResponseDto | null;
   errorCode: string | null;
   redactedError: string | null;
   version: IntWire;
@@ -228,6 +228,7 @@ export interface EmployeeScheduleRowResponseDto {
   days: EmployeeScheduleDayCellResponseDto[];
   assignedMinutes: IntWire;
   targetMinutes: IntWire;
+  hasWorkProfile: boolean;
   plannedOvertimeMinutes: IntWire;
   weekendShiftCount: IntWire;
   eveningShiftCount: IntWire;
@@ -264,7 +265,36 @@ export interface LocationCoverageResponseDto {
   periodStart: string;
   periodEnd: string;
   scheduleVersion: IntWire;
+  hasConfiguredRequirements: boolean;
   slots: LocationCoverageSlotResponseDto[];
+}
+
+export interface ScheduleGenerationDiagnosticCountsResponseDto {
+  activeLocationCount: IntWire;
+  openingIntervalCount: IntWire;
+  activeShiftTemplateCount: IntWire;
+  applicableShiftTemplateCount: IntWire;
+  coverageRequirementCount: IntWire;
+  activeEmployeeCount: IntWire;
+  schedulableEmployeeCount: IntWire;
+  autoFillEmployeeCount: IntWire;
+  locationAssignedEmployeeCount: IntWire;
+  workProfileEmployeeCount: IntWire;
+  capableEmployeeCount: IntWire;
+  candidateOptionCount: IntWire;
+}
+
+export interface ScheduleGenerationPreflightIssueResponseDto {
+  code: string;
+  severity: BackendIssueSeverity;
+  message: string;
+  settingsPath: string | null;
+}
+
+export interface ScheduleGenerationPreflightResponseDto {
+  canStart: boolean;
+  counts: ScheduleGenerationDiagnosticCountsResponseDto;
+  issues: ScheduleGenerationPreflightIssueResponseDto[];
 }
 
 export interface ScheduleIssueResponseDto {

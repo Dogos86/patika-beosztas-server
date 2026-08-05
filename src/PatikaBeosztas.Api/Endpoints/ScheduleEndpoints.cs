@@ -102,6 +102,11 @@ public static class ScheduleEndpoints
             .WithSummary("Review alatt álló beosztás Draft állapotba visszaadása")
             .Produces<SchedulePlanResponse>()
             .ProducesStandardErrors(includeConflict: true);
+        admin.MapPost("/{scheduleId:guid}/archive-empty-draft", ArchiveEmptyDraftAsync)
+            .RequireAntiforgery()
+            .WithSummary("Üres, nem publikált Draft biztonságos archiválása")
+            .Produces<SchedulePlanResponse>()
+            .ProducesStandardErrors(includeConflict: true);
 
         endpoints.MapPost(
                 "/api/admin/schedules/{scheduleId:guid}/regenerate",
@@ -526,6 +531,7 @@ public static class ScheduleEndpoints
                 days,
                 assignedMinutes,
                 profiles.GetValueOrDefault(employee.Id)?.ContractedMonthlyMinutes ?? 0,
+                profiles.ContainsKey(employee.Id),
                 overtime,
                 employeeShifts.Count(shift =>
                     shift.Date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday),
@@ -676,6 +682,7 @@ public static class ScheduleEndpoints
             plan.PeriodStart,
             plan.PeriodEnd,
             plan.Version,
+            requirements.Length > 0,
             result));
     }
 
@@ -1380,6 +1387,85 @@ public static class ScheduleEndpoints
             auditWriter,
             timeProvider,
             cancellationToken);
+
+    private static async Task<IResult> ArchiveEmptyDraftAsync(
+        Guid scheduleId,
+        ScheduleVersionRequest request,
+        HttpContext httpContext,
+        UserManager<ApplicationUser> userManager,
+        PatikaDbContext dbContext,
+        AuditWriter auditWriter,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var actor = await ActorAsync(
+            httpContext,
+            userManager,
+            dbContext,
+            cancellationToken);
+        if (actor is null)
+        {
+            return EndpointHelpers.Unauthorized();
+        }
+
+        var plan = await dbContext.SchedulePlans
+            .Include(item => item.ShiftAssignments)
+            .SingleOrDefaultAsync(
+                item =>
+                    item.Id == scheduleId &&
+                    item.OrganizationId == actor.OrganizationId,
+                cancellationToken);
+        if (plan is null)
+        {
+            return EndpointHelpers.NotFound();
+        }
+
+        if (plan.Version != request.ExpectedVersion)
+        {
+            return EndpointHelpers.Conflict("A beosztás a lekérés óta megváltozott.");
+        }
+
+        var activeShiftCount = plan.ShiftAssignments.Count(shift =>
+            shift.ChangeKind != ShiftChangeKind.Deleted);
+        if (plan.Status != ScheduleStatus.Draft || activeShiftCount != 0)
+        {
+            return EndpointHelpers.ValidationProblem(
+                [new ApiValidationError(
+                    "EMPTY_DRAFT_ARCHIVE_NOT_ALLOWED",
+                    "Csak Draft állapotú, nulla műszakos, nem publikált beosztás archiválható ezen a művelettel.",
+                    "status")]);
+        }
+
+        var now = timeProvider.GetUtcNow();
+        plan.Status = ScheduleStatus.Archived;
+        plan.ArchivedByUserId = actor.Id;
+        plan.ArchivedAtUtc = now;
+        plan.UpdatedByUserId = actor.Id;
+        plan.UpdatedAtUtc = now;
+        auditWriter.Add(
+            actor.OrganizationId,
+            actor.Id,
+            "SchedulePlan.EmptyDraftArchived",
+            "SchedulePlan",
+            plan.Id.ToString(),
+            httpContext.TraceIdentifier,
+            "Üres, nulla műszakos Draft archiválva.");
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return EndpointHelpers.Conflict("A beosztás archiválás közben megváltozott.");
+        }
+
+        var saved = await LoadPlanAsync(
+            dbContext,
+            actor.OrganizationId,
+            plan.Id,
+            cancellationToken);
+        return Results.Ok(ScheduleMapper.Map(saved!));
+    }
 
     private static Task<IResult> ApproveAsync(
         Guid scheduleId,

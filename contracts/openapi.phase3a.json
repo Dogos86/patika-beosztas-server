@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "http://127.0.0.1:5099/"
+      "url": "http://127.0.0.1:7180/"
     }
   ],
   "paths": {
@@ -8367,6 +8367,92 @@
         ]
       }
     },
+    "/api/admin/schedule-generations/preflight": {
+      "get": {
+        "tags": [
+          "Schedule generations"
+        ],
+        "summary": "Beosztásgenerálás előfeltételeinek ellenőrzése",
+        "description": "\r\nSzükséges policy: Permission:RunAutoFill.",
+        "parameters": [
+          {
+            "name": "periodStart",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "periodEnd",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleGenerationPreflightResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ]
+          }
+        ]
+      }
+    },
     "/api/admin/schedule-generations/{runId}": {
       "get": {
         "tags": [
@@ -10116,6 +10202,122 @@
           }
         ]
       }
+    },
+    "/api/admin/schedules/{scheduleId}/archive-empty-draft": {
+      "post": {
+        "tags": [
+          "Schedules"
+        ],
+        "summary": "Üres, nem publikált Draft biztonságos archiválása",
+        "description": "\r\nSzükséges policy: Permission:ManageSchedules.",
+        "parameters": [
+          {
+            "name": "scheduleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-TOKEN",
+            "in": "header",
+            "description": "A GET /api/auth/csrf válaszában kapott request token.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleVersionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchedulePlanResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": [ ]
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -11318,6 +11520,7 @@
           "days",
           "assignedMinutes",
           "targetMinutes",
+          "hasWorkProfile",
           "plannedOvertimeMinutes",
           "weekendShiftCount",
           "eveningShiftCount",
@@ -11354,6 +11557,9 @@
               "string"
             ],
             "format": "int32"
+          },
+          "hasWorkProfile": {
+            "type": "boolean"
           },
           "plannedOvertimeMinutes": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -12067,6 +12273,7 @@
           "periodStart",
           "periodEnd",
           "scheduleVersion",
+          "hasConfiguredRequirements",
           "slots"
         ],
         "type": "object",
@@ -12090,6 +12297,9 @@
               "string"
             ],
             "format": "uint32"
+          },
+          "hasConfiguredRequirements": {
+            "type": "boolean"
           },
           "slots": {
             "type": "array",
@@ -13229,6 +13439,169 @@
           "endTime": {
             "type": "string",
             "format": "time"
+          }
+        }
+      },
+      "ScheduleGenerationPreflightIssueResponse": {
+        "required": [
+          "code",
+          "severity",
+          "message",
+          "settingsPath"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/ScheduleIssueSeverity"
+          },
+          "message": {
+            "type": "string"
+          },
+          "settingsPath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ScheduleGenerationPreflightResponse": {
+        "required": [
+          "canStart",
+          "counts",
+          "issues"
+        ],
+        "type": "object",
+        "properties": {
+          "canStart": {
+            "type": "boolean"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/ScheduleGenerationReadinessCountsResponse"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleGenerationPreflightIssueResponse"
+            }
+          }
+        }
+      },
+      "ScheduleGenerationReadinessCountsResponse": {
+        "required": [
+          "activeLocationCount",
+          "openingIntervalCount",
+          "activeShiftTemplateCount",
+          "applicableShiftTemplateCount",
+          "coverageRequirementCount",
+          "activeEmployeeCount",
+          "schedulableEmployeeCount",
+          "autoFillEmployeeCount",
+          "locationAssignedEmployeeCount",
+          "workProfileEmployeeCount",
+          "capableEmployeeCount",
+          "candidateOptionCount"
+        ],
+        "type": "object",
+        "properties": {
+          "activeLocationCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "openingIntervalCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "activeShiftTemplateCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "applicableShiftTemplateCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "coverageRequirementCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "activeEmployeeCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "schedulableEmployeeCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "autoFillEmployeeCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "locationAssignedEmployeeCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "workProfileEmployeeCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "capableEmployeeCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "candidateOptionCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

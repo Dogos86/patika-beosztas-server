@@ -7,27 +7,64 @@ namespace PatikaBeosztas.Infrastructure.Scheduling;
 
 public sealed class ScheduleInputSnapshotFactory(PatikaDbContext dbContext)
 {
-    public async Task<ScheduleInputSnapshot> CreateAsync(
+    public Task<ScheduleInputSnapshot> CreateAsync(
         Guid schedulePlanId,
+        ScheduleGenerationOptions options,
+        CancellationToken cancellationToken) =>
+        CreateCoreAsync(
+            schedulePlanId,
+            null,
+            null,
+            null,
+            options,
+            cancellationToken);
+
+    public Task<ScheduleInputSnapshot> CreateForPreflightAsync(
+        Guid organizationId,
+        DateOnly periodStart,
+        DateOnly periodEnd,
+        ScheduleGenerationOptions options,
+        CancellationToken cancellationToken) =>
+        CreateCoreAsync(
+            null,
+            organizationId,
+            periodStart,
+            periodEnd,
+            options,
+            cancellationToken);
+
+    private async Task<ScheduleInputSnapshot> CreateCoreAsync(
+        Guid? schedulePlanId,
+        Guid? preflightOrganizationId,
+        DateOnly? preflightPeriodStart,
+        DateOnly? preflightPeriodEnd,
         ScheduleGenerationOptions options,
         CancellationToken cancellationToken)
     {
-        var plan = await dbContext.SchedulePlans
-            .AsNoTracking()
-            .SingleAsync(item => item.Id == schedulePlanId, cancellationToken);
+        var plan = schedulePlanId is null
+            ? null
+            : await dbContext.SchedulePlans
+                .AsNoTracking()
+                .SingleAsync(item => item.Id == schedulePlanId, cancellationToken);
+        var organizationId = plan?.OrganizationId ?? preflightOrganizationId ??
+            throw new InvalidOperationException("A szervezeti azonosító hiányzik.");
+        var periodStart = plan?.PeriodStart ?? preflightPeriodStart ??
+            throw new InvalidOperationException("A kezdő dátum hiányzik.");
+        var periodEnd = plan?.PeriodEnd ?? preflightPeriodEnd ??
+            throw new InvalidOperationException("A záró dátum hiányzik.");
         var organization = await dbContext.Organizations
             .AsNoTracking()
-            .SingleAsync(item => item.Id == plan.OrganizationId, cancellationToken);
+            .SingleAsync(item => item.Id == organizationId, cancellationToken);
         var locations = await dbContext.Locations
             .AsNoTracking()
-            .Where(item => item.OrganizationId == plan.OrganizationId)
+            .Where(item => item.OrganizationId == organizationId)
             .OrderBy(item => item.Id)
             .Select(item => new SnapshotLocation(item.Id, item.Name, item.IsActive))
             .ToArrayAsync(cancellationToken);
         var openings = await dbContext.LocationWeeklyOpenings
             .AsNoTracking()
             .Include(item => item.Intervals)
-            .Where(item => item.OrganizationId == plan.OrganizationId)
+            .Where(item => item.OrganizationId == organizationId)
             .OrderBy(item => item.LocationId)
             .ToArrayAsync(cancellationToken);
         var openingIntervals = openings
@@ -59,7 +96,7 @@ public sealed class ScheduleInputSnapshotFactory(PatikaDbContext dbContext)
             .ToArray();
         var templates = await dbContext.LocationShiftTemplates
             .AsNoTracking()
-            .Where(item => item.OrganizationId == plan.OrganizationId)
+            .Where(item => item.OrganizationId == organizationId)
             .OrderBy(item => item.Id)
             .Select(item => new SnapshotShiftTemplate(
                 item.Id,
@@ -75,7 +112,7 @@ public sealed class ScheduleInputSnapshotFactory(PatikaDbContext dbContext)
             .ToArrayAsync(cancellationToken);
         var coverage = await dbContext.CoverageRequirements
             .AsNoTracking()
-            .Where(item => item.OrganizationId == plan.OrganizationId)
+            .Where(item => item.OrganizationId == organizationId)
             .OrderBy(item => item.Id)
             .Select(item => new SnapshotCoverageRequirement(
                 item.Id,
@@ -91,7 +128,7 @@ public sealed class ScheduleInputSnapshotFactory(PatikaDbContext dbContext)
             .ToArrayAsync(cancellationToken);
         var employees = await dbContext.Employees
             .AsNoTracking()
-            .Where(item => item.OrganizationId == plan.OrganizationId)
+            .Where(item => item.OrganizationId == organizationId)
             .OrderBy(item => item.Id)
             .Select(item => new SnapshotEmployee(
                 item.Id,
@@ -104,7 +141,7 @@ public sealed class ScheduleInputSnapshotFactory(PatikaDbContext dbContext)
             .ToArrayAsync(cancellationToken);
         var employeeLocations = await dbContext.EmployeeLocations
             .AsNoTracking()
-            .Where(item => item.OrganizationId == plan.OrganizationId)
+            .Where(item => item.OrganizationId == organizationId)
             .OrderBy(item => item.EmployeeId)
             .ThenBy(item => item.LocationId)
             .Select(item => new SnapshotEmployeeLocation(
@@ -114,7 +151,7 @@ public sealed class ScheduleInputSnapshotFactory(PatikaDbContext dbContext)
             .ToArrayAsync(cancellationToken);
         var capabilities = await dbContext.EmployeeCapabilities
             .AsNoTracking()
-            .Where(item => item.OrganizationId == plan.OrganizationId)
+            .Where(item => item.OrganizationId == organizationId)
             .OrderBy(item => item.EmployeeId)
             .ThenBy(item => item.Capability)
             .Select(item => new SnapshotEmployeeCapability(
@@ -123,7 +160,7 @@ public sealed class ScheduleInputSnapshotFactory(PatikaDbContext dbContext)
             .ToArrayAsync(cancellationToken);
         var profiles = await dbContext.EmployeeWorkProfiles
             .AsNoTracking()
-            .Where(item => item.OrganizationId == plan.OrganizationId)
+            .Where(item => item.OrganizationId == organizationId)
             .OrderBy(item => item.EmployeeId)
             .Select(item => new SnapshotEmployeeWorkProfile(
                 item.EmployeeId,
@@ -150,7 +187,7 @@ public sealed class ScheduleInputSnapshotFactory(PatikaDbContext dbContext)
             .ToArrayAsync(cancellationToken);
         var quotas = await dbContext.EmployeeShiftQuotaRules
             .AsNoTracking()
-            .Where(item => item.OrganizationId == plan.OrganizationId)
+            .Where(item => item.OrganizationId == organizationId)
             .OrderBy(item => item.EmployeeId)
             .ThenBy(item => item.Dimension)
             .Select(item => new SnapshotShiftQuota(
@@ -167,9 +204,9 @@ public sealed class ScheduleInputSnapshotFactory(PatikaDbContext dbContext)
         var preferences = await dbContext.WorkPreferences
             .AsNoTracking()
             .Where(item =>
-                item.OrganizationId == plan.OrganizationId &&
-                item.DateFrom <= plan.PeriodEnd &&
-                item.DateTo >= plan.PeriodStart)
+                item.OrganizationId == organizationId &&
+                item.DateFrom <= periodEnd &&
+                item.DateTo >= periodStart)
             .OrderBy(item => item.EmployeeId)
             .ThenBy(item => item.Id)
             .Select(item => new SnapshotWorkPreference(
@@ -188,9 +225,9 @@ public sealed class ScheduleInputSnapshotFactory(PatikaDbContext dbContext)
         var leaves = await dbContext.LeaveRequests
             .AsNoTracking()
             .Where(item =>
-                item.OrganizationId == plan.OrganizationId &&
-                item.DateFrom <= plan.PeriodEnd &&
-                (item.DateTo == null || item.DateTo >= plan.PeriodStart))
+                item.OrganizationId == organizationId &&
+                item.DateFrom <= periodEnd &&
+                (item.DateTo == null || item.DateTo >= periodStart))
             .OrderBy(item => item.EmployeeId)
             .ThenBy(item => item.Id)
             .Select(item => new SnapshotLeave(
@@ -204,14 +241,18 @@ public sealed class ScheduleInputSnapshotFactory(PatikaDbContext dbContext)
                 item.EndTime,
                 item.Status))
             .ToArrayAsync(cancellationToken);
-        var existing = await LoadExistingShiftsAsync(
-            plan,
-            options.Scope,
-            cancellationToken);
-        var rejected = await dbContext.GeneratedSuggestionDecisions
+        var existing = plan is null
+            ? []
+            : await LoadExistingShiftsAsync(
+                plan,
+                options.Scope,
+                cancellationToken);
+        var rejected = plan is null
+            ? []
+            : await dbContext.GeneratedSuggestionDecisions
             .AsNoTracking()
             .Where(item =>
-                item.OrganizationId == plan.OrganizationId &&
+                item.OrganizationId == organizationId &&
                 item.SchedulePlanId == plan.Id &&
                 item.DecisionType == GeneratedSuggestionDecisionType.Reject)
             .Join(
@@ -237,8 +278,8 @@ public sealed class ScheduleInputSnapshotFactory(PatikaDbContext dbContext)
             organization.Id,
             organization.Name,
             organization.TimeZoneId,
-            plan.PeriodStart,
-            plan.PeriodEnd,
+            periodStart,
+            periodEnd,
             OrToolsScheduleOptimizer.AlgorithmVersion,
             options,
             locations,

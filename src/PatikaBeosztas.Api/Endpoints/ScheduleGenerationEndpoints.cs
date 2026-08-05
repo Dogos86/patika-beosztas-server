@@ -36,6 +36,10 @@ public static class ScheduleGenerationEndpoints
             .WithSummary("Tartós teljes időszakos beosztásgenerálás indítása")
             .Produces<ScheduleGenerationRunResponse>(StatusCodes.Status202Accepted)
             .ProducesStandardErrors(includeConflict: true);
+        group.MapGet("/preflight", PreflightAsync)
+            .WithSummary("Beosztásgenerálás előfeltételeinek ellenőrzése")
+            .Produces<ScheduleGenerationPreflightResponse>()
+            .ProducesStandardErrors();
         group.MapGet("/{runId:guid}", GetAsync)
             .WithSummary("Generálási futás állapotának lekérése")
             .Produces<ScheduleGenerationRunResponse>()
@@ -53,6 +57,7 @@ public static class ScheduleGenerationEndpoints
         HttpContext httpContext,
         UserManager<ApplicationUser> userManager,
         PatikaDbContext dbContext,
+        ScheduleInputSnapshotFactory snapshotFactory,
         AuditWriter auditWriter,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
@@ -91,6 +96,18 @@ public static class ScheduleGenerationEndpoints
         if (existing is not null)
         {
             return Results.Ok(ScheduleMapper.Map(existing));
+        }
+
+        var preflight = await AnalyzePreflightAsync(
+            actor.OrganizationId,
+            request.PeriodStart,
+            request.PeriodEnd,
+            snapshotFactory,
+            cancellationToken);
+        if (!preflight.CanStart)
+        {
+            return EndpointHelpers.ValidationProblem(preflight.Issues.Select(issue =>
+                new ApiValidationError(issue.Code, issue.Message, "generation")).ToArray());
         }
 
         var organization = await dbContext.Organizations
@@ -201,6 +218,89 @@ public static class ScheduleGenerationEndpoints
         return Results.Accepted(
             $"/api/admin/schedule-generations/{run.Id}",
             ScheduleMapper.Map(run));
+    }
+
+    private static async Task<IResult> PreflightAsync(
+        DateOnly periodStart,
+        DateOnly periodEnd,
+        HttpContext httpContext,
+        UserManager<ApplicationUser> userManager,
+        PatikaDbContext dbContext,
+        ScheduleInputSnapshotFactory snapshotFactory,
+        CancellationToken cancellationToken)
+    {
+        var actor = await EndpointHelpers.GetActorAsync(
+            httpContext,
+            userManager,
+            dbContext,
+            cancellationToken);
+        if (actor is null)
+        {
+            return EndpointHelpers.Unauthorized();
+        }
+
+        var periodErrors = SchedulePlanRules.ValidatePeriod(periodStart, periodEnd);
+        if (periodErrors.Count > 0)
+        {
+            return EndpointHelpers.ValidationProblem(periodErrors.Select(issue =>
+                new ApiValidationError(issue.Code, issue.Message, "period")).ToArray());
+        }
+
+        var result = await AnalyzePreflightAsync(
+            actor.OrganizationId,
+            periodStart,
+            periodEnd,
+            snapshotFactory,
+            cancellationToken);
+        return Results.Ok(MapPreflight(result));
+    }
+
+    private static async Task<ScheduleGenerationPreflightResult> AnalyzePreflightAsync(
+        Guid organizationId,
+        DateOnly periodStart,
+        DateOnly periodEnd,
+        ScheduleInputSnapshotFactory snapshotFactory,
+        CancellationToken cancellationToken)
+    {
+        var options = ScheduleGenerationOptions.CreateDefault(periodStart, periodEnd);
+        var snapshot = await snapshotFactory.CreateForPreflightAsync(
+            organizationId,
+            periodStart,
+            periodEnd,
+            options,
+            cancellationToken);
+        var snapshotJson = ScheduleSnapshotCanonicalizer.Serialize(snapshot);
+        var hash = ScheduleSnapshotCanonicalizer.ComputeHash(snapshotJson);
+        var build = ScheduleCandidateBuilder.Build(snapshot, hash);
+        return ScheduleGenerationDiagnostics.Analyze(
+            snapshot,
+            build.OptimizerInput.Candidates.Count);
+    }
+
+    private static ScheduleGenerationPreflightResponse MapPreflight(
+        ScheduleGenerationPreflightResult result)
+    {
+        var counts = result.Counts;
+        return new(
+            result.CanStart,
+            new ScheduleGenerationReadinessCountsResponse(
+                counts.ActiveLocationCount,
+                counts.OpeningIntervalCount,
+                counts.ActiveShiftTemplateCount,
+                counts.ApplicableShiftTemplateCount,
+                counts.CoverageRequirementCount,
+                counts.ActiveEmployeeCount,
+                counts.SchedulableEmployeeCount,
+                counts.AutoFillEmployeeCount,
+                counts.LocationAssignedEmployeeCount,
+                counts.WorkProfileEmployeeCount,
+                counts.CapableEmployeeCount,
+                counts.CandidateOptionCount),
+            result.Issues.Select(issue => new ScheduleGenerationPreflightIssueResponse(
+                issue.Code,
+                issue.Severity,
+                issue.Message,
+                issue.SettingsPath)).ToArray());
     }
 
     private static async Task<IResult> GetAsync(

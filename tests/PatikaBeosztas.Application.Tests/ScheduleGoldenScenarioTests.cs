@@ -379,7 +379,63 @@ public sealed class ScheduleGoldenScenarioTests
 
         Assert.IsEmpty(build.OptimizerInput.Candidates);
         Assert.IsEmpty(build.OptimizerInput.CoverageSlots);
+        var issue = build.InputIssues.Single(item =>
+            item.Code == "NO_CANDIDATE_OPTIONS");
+        Assert.AreEqual(0, issue.Parameters["candidateOptionCount"]);
+        Assert.AreEqual(0, issue.Parameters["activeLocationCount"]);
         Assert.IsFalse(scenario.Locations.Single().IsActive);
+    }
+
+    [TestMethod]
+    public void PreflightReportsNoCoverageWithoutClaimingUsefulCoverage()
+    {
+        var scenario = new Scenario(Monday, Monday);
+        var locationId = scenario.AddLocation("Központ");
+        scenario.AddEmployee(locationId, StaffingCapability.Pharmacist);
+        scenario.AddTemplate(locationId, new(8, 0), new(16, 0));
+        var snapshot = scenario.Build();
+        var build = ScheduleCandidateBuilder.Build(snapshot, "hash");
+
+        var preflight = ScheduleGenerationDiagnostics.Analyze(
+            snapshot,
+            build.OptimizerInput.Candidates.Count);
+
+        Assert.IsFalse(preflight.CanStart);
+        Assert.IsTrue(preflight.Issues.Any(issue =>
+            issue.Code == "NO_COVERAGE_REQUIREMENTS"));
+        Assert.AreEqual(0, preflight.Counts.CoverageRequirementCount);
+    }
+
+    [TestMethod]
+    public void PreflightReportsMissingWorkProfileAndLocationAssignment()
+    {
+        var scenario = new Scenario(Monday, Monday);
+        var locationId = scenario.AddLocation("Központ");
+        scenario.AddEmployee(locationId, StaffingCapability.Pharmacist);
+        scenario.AddTemplate(locationId, new(8, 0), new(16, 0));
+        scenario.AddCoverage(
+            locationId,
+            Monday.DayOfWeek,
+            StaffingCapability.Pharmacist,
+            new(8, 0),
+            new(16, 0));
+        scenario.Profiles.Clear();
+        scenario.EmployeeLocations.Clear();
+        var snapshot = scenario.Build();
+        var build = ScheduleCandidateBuilder.Build(snapshot, "hash");
+
+        var preflight = ScheduleGenerationDiagnostics.Analyze(
+            snapshot,
+            build.OptimizerInput.Candidates.Count);
+
+        Assert.IsTrue(preflight.Issues.Any(issue =>
+            issue.Code == "MISSING_WORK_PROFILE"));
+        Assert.IsTrue(preflight.Issues.Any(issue =>
+            issue.Code == "MISSING_LOCATION_ASSIGNMENT"));
+        Assert.IsTrue(preflight.Issues.Any(issue =>
+            issue.Code == "NO_CANDIDATE_OPTIONS"));
+        Assert.AreEqual(0, preflight.Counts.WorkProfileEmployeeCount);
+        Assert.AreEqual(0, preflight.Counts.LocationAssignedEmployeeCount);
     }
 
     [TestMethod]

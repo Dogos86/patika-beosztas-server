@@ -99,15 +99,7 @@ const runDto = {
   deterministicSeed: "42",
   inputSnapshotHash: "h",
   objectiveValue: null,
-  statistics: {
-    candidateOptionCount: "0",
-    variableCount: "0",
-    constraintCount: "0",
-    wallTimeSeconds: "0",
-    bestObjectiveBound: null,
-    conflicts: null,
-    branches: null,
-  },
+  statistics: null,
   errorCode: null,
   redactedError: null,
   version: "1",
@@ -160,6 +152,45 @@ describe("permission réteg", () => {
 });
 
 describe("generálás start / poll / cancel", () => {
+  it("preflight strukturált diagnosztikát kér le", async () => {
+    const calls = stubFetch(() =>
+      json(200, {
+        canStart: false,
+        counts: {
+          activeLocationCount: "1",
+          openingIntervalCount: "5",
+          activeShiftTemplateCount: "0",
+          applicableShiftTemplateCount: "0",
+          coverageRequirementCount: "0",
+          activeEmployeeCount: "2",
+          schedulableEmployeeCount: "2",
+          autoFillEmployeeCount: "2",
+          locationAssignedEmployeeCount: "0",
+          workProfileEmployeeCount: "0",
+          capableEmployeeCount: "1",
+          candidateOptionCount: "0",
+        },
+        issues: [
+          {
+            code: "NO_CANDIDATE_OPTIONS",
+            severity: "Blocking",
+            message: "Nincs jelölt.",
+            settingsPath: "/app/admin/employees",
+          },
+        ],
+      }),
+    );
+    const result = await httpServices.scheduleGeneration.preflight({
+      periodStart: "2026-01-05",
+      periodEnd: "2026-01-11",
+    });
+    expect(calls[0].method).toBe("GET");
+    expect(calls[0].url).toContain("/preflight");
+    expect(result.canStart).toBe(false);
+    expect(result.counts.candidateOptionCount).toBe(0);
+    expect(result.issues[0].severity).toBe("blocking");
+  });
+
   it("start POST-ol és leképezi a futást", async () => {
     const calls = stubFetch(() => json(202, runDto));
     const run = await httpServices.scheduleGeneration.start({
@@ -174,6 +205,17 @@ describe("generálás start / poll / cancel", () => {
     expectCentralCsrf(calls);
     expect(run.status).toBe("Queued");
     expect(run.version).toBe(1);
+  });
+
+  it("párhuzamos indításból pontosan egy POST készül", async () => {
+    const calls = stubFetch(() => json(202, runDto));
+    const input = { periodStart: "2026-01-05", periodEnd: "2026-01-11" };
+    const [first, second] = await Promise.all([
+      httpServices.scheduleGeneration.start(input),
+      httpServices.scheduleGeneration.start(input),
+    ]);
+    expect(first.id).toBe(second.id);
+    expect(calls).toHaveLength(1);
   });
 
   it("get lekéri a futás állapotát", async () => {
@@ -268,6 +310,7 @@ describe("schedule list / detail / projekciók", () => {
           periodStart: "2026-01-05",
           periodEnd: "2026-01-11",
           scheduleVersion: "4",
+          hasConfiguredRequirements: false,
           slots: [],
         });
       if (c.url.includes("/issues")) return json(200, []);
@@ -391,6 +434,16 @@ describe("részleges újragenerálás – minden scope", () => {
     expect(calls[0].headers.get("Idempotency-Key")).toMatch(/^schedule-regeneration-/);
     expectCentralCsrf(calls);
   });
+
+  it("párhuzamos újragenerálásból pontosan egy POST készül", async () => {
+    const calls = stubFetch(() => json(202, runDto));
+    const input = { scope: { type: "full" as const }, expectedVersion: 4 };
+    await Promise.all([
+      httpServices.adminSchedule.regenerate("sch1", input),
+      httpServices.adminSchedule.regenerate("sch1", input),
+    ]);
+    expect(calls).toHaveLength(1);
+  });
 });
 
 describe("workflow", () => {
@@ -401,19 +454,21 @@ describe("workflow", () => {
     await httpServices.adminSchedule.approve("sch1", 6);
     await httpServices.adminSchedule.publish("sch1", 7);
     await httpServices.adminSchedule.archive("sch1", 8);
-    await httpServices.adminSchedule.cloneDraft("sch1", 9);
+    await httpServices.adminSchedule.archiveEmptyDraft("sch1", 9);
+    await httpServices.adminSchedule.cloneDraft("sch1", 10);
     expect(calls.map((c) => c.url.split("/").pop())).toEqual([
       "submit-review",
       "return-draft",
       "approve",
       "publish",
       "archive",
+      "archive-empty-draft",
       "clone-draft",
     ]);
     expect(calls.map((c) => (c.body as { expectedVersion: number }).expectedVersion)).toEqual([
-      4, 5, 6, 7, 8, 9,
+      4, 5, 6, 7, 8, 9, 10,
     ]);
-    expect(calls[5].headers.get("Idempotency-Key")).toMatch(/^schedule-clone-/);
+    expect(calls[6].headers.get("Idempotency-Key")).toMatch(/^schedule-clone-/);
     expectCentralCsrf(calls);
   });
 

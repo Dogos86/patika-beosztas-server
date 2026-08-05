@@ -1076,6 +1076,9 @@ export const mockServices: Services = {
   schedule: scheduleService,
   scheduleWorkspace: scheduleWorkspaceService,
   scheduleGeneration: {
+    async preflight() {
+      throw new Error("A beosztás-generálás csak API módban érhető el.");
+    },
     async start() {
       throw new Error("A beosztás-generálás csak API módban érhető el.");
     },
@@ -1140,6 +1143,9 @@ export const mockServices: Services = {
     },
     async archive() {
       throw new Error("Az archiválás csak API módban érhető el.");
+    },
+    async archiveEmptyDraft() {
+      throw new Error("Az üres draft archiválása csak API módban érhető el.");
     },
     async cloneDraft() {
       throw new Error("A draft klónozás csak API módban érhető el.");

@@ -71,6 +71,7 @@ public sealed class Phase3ARuntimeTests
             "phase3-generation-lifecycle-0001");
         Assert.AreEqual(HttpStatusCode.Accepted, createResponse.StatusCode);
         var created = await ReadAsync<ScheduleGenerationRunResponse>(createResponse);
+        Assert.IsNull(created.Statistics);
 
         using var idempotentResponse = await SendWithCsrfAsync(
             HttpMethod.Post,
@@ -101,10 +102,17 @@ public sealed class Phase3ARuntimeTests
         var matrix = await ReadAsync<EmployeeScheduleMatrixResponse>(matrixResponse);
         Assert.IsTrue(matrix.Employees.Any(row =>
             row.Days.Any(day => day.Shifts.Count > 0)));
+        Assert.IsTrue(matrix.Employees
+            .Where(row =>
+                row.EmployeeId == IntegrationTestData.AdminEmployeeId ||
+                row.EmployeeId == IntegrationTestData.RegularEmployeeId)
+            .All(row => row.HasWorkProfile));
+        Assert.IsTrue(matrix.Employees.Any(row => !row.HasWorkProfile));
 
         using var coverageResponse = await client.GetAsync(
             $"/api/admin/schedules/{schedule.Id}/location-coverage");
         var coverage = await ReadAsync<LocationCoverageResponse>(coverageResponse);
+        Assert.IsTrue(coverage.HasConfiguredRequirements);
         Assert.IsTrue(coverage.Slots.All(slot => slot.Shortage == 0));
 
         using var issuesResponse = await client.GetAsync(
@@ -154,6 +162,79 @@ public sealed class Phase3ARuntimeTests
         Assert.IsTrue(await dbContext.AuditLogs.AnyAsync(item =>
             item.Action == "ScheduleGeneration.Succeeded" &&
             item.EntityId == completed.Id.ToString()));
+    }
+
+    [TestMethod]
+    public async Task PreflightReturnsStructuredCountsAndBlocksMissingConfiguration()
+    {
+        await LoginAsync("admin@test.invalid");
+
+        using var missingResponse = await client.GetAsync(
+            $"/api/admin/schedule-generations/preflight?periodStart={PlanningDate:yyyy-MM-dd}&periodEnd={PlanningDate:yyyy-MM-dd}");
+        var missing = await ReadAsync<ScheduleGenerationPreflightResponse>(missingResponse);
+        Assert.IsFalse(missing.CanStart);
+        Assert.IsTrue(missing.Issues.Any(issue =>
+            issue.Code == "NO_CANDIDATE_OPTIONS"));
+        Assert.AreEqual(0, missing.Counts.CandidateOptionCount);
+
+        await SeedPlanningInputAsync();
+        using var readyResponse = await client.GetAsync(
+            $"/api/admin/schedule-generations/preflight?periodStart={PlanningDate:yyyy-MM-dd}&periodEnd={PlanningDate:yyyy-MM-dd}");
+        var ready = await ReadAsync<ScheduleGenerationPreflightResponse>(readyResponse);
+        Assert.IsTrue(ready.CanStart, JsonSerializer.Serialize(ready, JsonOptions));
+        Assert.IsTrue(ready.Counts.CandidateOptionCount > 0);
+        Assert.IsTrue(ready.Counts.CoverageRequirementCount > 0);
+    }
+
+    [TestMethod]
+    public async Task EmptyDraftCanBeArchivedWithVersionPermissionAndAudit()
+    {
+        await LoginAsync("admin@test.invalid");
+        Guid planId;
+        await using (var scope = application.Services.CreateAsyncScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<PatikaDbContext>();
+            var plan = Plan(
+                IntegrationTestData.OrganizationId,
+                IntegrationTestData.AdminUserId,
+                PlanningDate,
+                ScheduleStatus.Draft,
+                DateTimeOffset.UtcNow);
+            planId = plan.Id;
+            dbContext.SchedulePlans.Add(plan);
+            await dbContext.SaveChangesAsync();
+        }
+
+        var planBefore = await GetScheduleAsync(planId);
+        using var staleResponse = await SendWithCsrfAsync(
+            HttpMethod.Post,
+            $"/api/admin/schedules/{planId}/archive-empty-draft",
+            new ScheduleVersionRequest(planBefore.Version + 1));
+        Assert.AreEqual(HttpStatusCode.Conflict, staleResponse.StatusCode);
+
+        using var response = await SendWithCsrfAsync(
+            HttpMethod.Post,
+            $"/api/admin/schedules/{planId}/archive-empty-draft",
+            new ScheduleVersionRequest(planBefore.Version));
+        var archived = await ReadAsync<SchedulePlanResponse>(response);
+
+        Assert.AreEqual(ScheduleStatus.Archived, archived.Status);
+        Assert.IsNotNull(archived.ArchivedAtUtc);
+        await using var verifyScope = application.Services.CreateAsyncScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<PatikaDbContext>();
+        Assert.IsTrue(await verifyDb.AuditLogs.AnyAsync(log =>
+            log.Action == "SchedulePlan.EmptyDraftArchived" &&
+            log.EntityId == planId.ToString()));
+
+        var nonEmpty = await SeedDraftPlanAsync(
+            IntegrationTestData.AdminEmployeeId,
+            includeExplanation: false);
+        var nonEmptyPlan = await GetScheduleAsync(nonEmpty.PlanId);
+        using var nonEmptyResponse = await SendWithCsrfAsync(
+            HttpMethod.Post,
+            $"/api/admin/schedules/{nonEmpty.PlanId}/archive-empty-draft",
+            new ScheduleVersionRequest(nonEmptyPlan.Version));
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, nonEmptyResponse.StatusCode);
     }
 
     [TestMethod]
@@ -453,8 +534,16 @@ public sealed class Phase3ARuntimeTests
                 1),
             "phase3-permission-generation-0001");
         Assert.AreEqual(HttpStatusCode.Forbidden, generationForbidden.StatusCode);
+        using var preflightForbidden = await client.GetAsync(
+            $"/api/admin/schedule-generations/preflight?periodStart={PlanningDate:yyyy-MM-dd}&periodEnd={PlanningDate:yyyy-MM-dd}");
+        Assert.AreEqual(HttpStatusCode.Forbidden, preflightForbidden.StatusCode);
 
         await SetAdminPermissionsAsync(ApplicationPermission.RunAutoFill);
+        using var archiveEmptyForbidden = await SendWithCsrfAsync(
+            HttpMethod.Post,
+            $"/api/admin/schedules/{Guid.NewGuid()}/archive-empty-draft",
+            new ScheduleVersionRequest(1));
+        Assert.AreEqual(HttpStatusCode.Forbidden, archiveEmptyForbidden.StatusCode);
         using var approveForbidden = await SendWithCsrfAsync(
             HttpMethod.Post,
             $"/api/admin/schedules/{Guid.NewGuid()}/approve",
@@ -628,6 +717,18 @@ public sealed class Phase3ARuntimeTests
                 item.Id == IntegrationTestData.AdminEmployeeId ||
                 item.Id == IntegrationTestData.RegularEmployeeId)
             .ToArrayAsync();
+        var unconfiguredAutoFillEmployees = await dbContext.Employees
+            .Where(item =>
+                item.OrganizationId == IntegrationTestData.OrganizationId &&
+                item.Id != IntegrationTestData.AdminEmployeeId &&
+                item.Id != IntegrationTestData.RegularEmployeeId &&
+                item.IncludeInAutoFill)
+            .ToArrayAsync();
+        foreach (var employee in unconfiguredAutoFillEmployees)
+        {
+            employee.IncludeInAutoFill = false;
+            employee.UpdatedAtUtc = now;
+        }
         foreach (var employee in employees)
         {
             employee.ProfessionalRole = ProfessionalRole.Pharmacist;
@@ -635,13 +736,18 @@ public sealed class Phase3ARuntimeTests
             employee.IncludeInAutoFill = true;
             employee.CountsAsPharmacist = true;
             employee.UpdatedAtUtc = now;
-            dbContext.EmployeeLocations.Add(new EmployeeLocation
+            if (!await dbContext.EmployeeLocations.AnyAsync(item =>
+                    item.EmployeeId == employee.Id &&
+                    item.LocationId == IntegrationTestData.LocalLocationId))
             {
-                OrganizationId = IntegrationTestData.OrganizationId,
-                EmployeeId = employee.Id,
-                LocationId = IntegrationTestData.LocalLocationId,
-                Enabled = true
-            });
+                dbContext.EmployeeLocations.Add(new EmployeeLocation
+                {
+                    OrganizationId = IntegrationTestData.OrganizationId,
+                    EmployeeId = employee.Id,
+                    LocationId = IntegrationTestData.LocalLocationId,
+                    Enabled = true
+                });
+            }
             if (!await dbContext.EmployeeCapabilities.AnyAsync(item =>
                     item.EmployeeId == employee.Id &&
                     item.Capability == StaffingCapability.Pharmacist))
@@ -655,7 +761,11 @@ public sealed class Phase3ARuntimeTests
                 });
             }
 
-            dbContext.EmployeeWorkProfiles.Add(WorkProfile(employee.Id, now));
+            if (!await dbContext.EmployeeWorkProfiles.AnyAsync(item =>
+                    item.EmployeeId == employee.Id))
+            {
+                dbContext.EmployeeWorkProfiles.Add(WorkProfile(employee.Id, now));
+            }
         }
 
         var opening = new LocationWeeklyOpening

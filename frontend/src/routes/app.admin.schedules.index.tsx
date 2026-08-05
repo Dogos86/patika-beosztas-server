@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { services, dataSource } from "@/services";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -47,6 +47,26 @@ function SchedulesListPage() {
     enabled: !denied,
   });
 
+  const defStart = weekStartISO();
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      periodStart: defStart,
+      periodEnd: addDaysISO(defStart, 6),
+      deterministicSeed: "",
+      maxSolveSeconds: "",
+    },
+  });
+  const periodStart = useWatch({ control: form.control, name: "periodStart" });
+  const periodEnd = useWatch({ control: form.control, name: "periodEnd" });
+  const isApi = dataSource === "api";
+  const preflight = useQuery({
+    queryKey: ["schedule-generation-preflight", periodStart, periodEnd],
+    queryFn: () => services.scheduleGeneration.preflight({ periodStart, periodEnd }),
+    enabled: open && isApi && !!periodStart && !!periodEnd,
+    retry: false,
+  });
+
   const start = useMutation({
     mutationFn: (input: {
       periodStart: string;
@@ -61,19 +81,6 @@ function SchedulesListPage() {
       window.location.href = `/app/admin/schedules/${run.schedulePlanId}?run=${run.id}`;
     },
   });
-
-  const defStart = weekStartISO();
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      periodStart: defStart,
-      periodEnd: addDaysISO(defStart, 6),
-      deterministicSeed: "",
-      maxSolveSeconds: "",
-    },
-  });
-
-  const isApi = dataSource === "api";
 
   if (denied) return denied;
 
@@ -184,20 +191,64 @@ function SchedulesListPage() {
                 <Input id="maxSolveSeconds" {...form.register("maxSolveSeconds")} />
               </div>
             </div>
+            {preflight.isLoading && (
+              <p className="text-sm text-muted-foreground">Előfeltételek ellenőrzése…</p>
+            )}
+            {preflight.data && (
+              <div className="space-y-2 rounded border p-3">
+                <p className="text-sm font-medium">Generálási előfeltételek</p>
+                <p className="text-xs text-muted-foreground">
+                  {preflight.data.counts.activeLocationCount} aktív telephely ·{" "}
+                  {preflight.data.counts.openingIntervalCount} nyitvatartási intervallum ·{" "}
+                  {preflight.data.counts.applicableShiftTemplateCount} alkalmazható műszaksablon ·{" "}
+                  {preflight.data.counts.coverageRequirementCount} coverage szabály ·{" "}
+                  {preflight.data.counts.autoFillEmployeeCount} autofill dolgozó ·{" "}
+                  {preflight.data.counts.candidateOptionCount} jelölt
+                </p>
+                {preflight.data.issues.map((issue) => (
+                  <div
+                    key={issue.code}
+                    className={
+                      issue.severity === "blocking"
+                        ? "text-sm text-destructive"
+                        : "text-sm text-amber-700"
+                    }
+                  >
+                    <span>{issue.message}</span>{" "}
+                    {issue.settingsPath && (
+                      <a className="underline" href={issue.settingsPath}>
+                        Beállítás megnyitása
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {preflight.error && (
+              <p className="text-sm text-destructive">
+                Az előfeltételek ellenőrzése nem sikerült. Próbáld újra.
+              </p>
+            )}
             {start.error && (
               <p className="text-sm text-destructive">
                 {start.error instanceof ApiError
                   ? start.error.message
-                  : start.error instanceof Error
-                    ? start.error.message
-                    : "Ismeretlen hiba."}
+                  : "A generálás indítása nem sikerült. Próbáld újra."}
               </p>
             )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 Mégse
               </Button>
-              <Button type="submit" disabled={start.isPending}>
+              <Button
+                type="submit"
+                disabled={
+                  start.isPending ||
+                  preflight.isLoading ||
+                  !!preflight.error ||
+                  preflight.data?.canStart !== true
+                }
+              >
                 {start.isPending ? "Indítás…" : "Indítás"}
               </Button>
             </DialogFooter>

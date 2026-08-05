@@ -19,6 +19,7 @@ import type {
   ScheduleListItemResponseDto,
   SchedulePlanResponseDto,
   ScheduleSolverStatisticsResponseDto,
+  ScheduleGenerationPreflightResponseDto,
   ShiftAssignmentResponseDto,
   ShiftExplanationResponseDto,
   ShiftSegmentResponseDto,
@@ -46,6 +47,7 @@ import type {
   ScheduleIssueRow,
   ScheduleChange,
   ScheduleSolverStatistics,
+  ScheduleGenerationPreflight,
   RegenerationScopeInput,
   TimeType as ScheduleTimeType,
 } from "@/services/types";
@@ -161,7 +163,7 @@ export function mapGenerationRunFromBackend(
     deterministicSeed: dto.deterministicSeed == null ? null : num(dto.deterministicSeed),
     inputSnapshotHash: dto.inputSnapshotHash,
     objectiveValue: dto.objectiveValue == null ? null : num(dto.objectiveValue),
-    statistics: mapStats(dto.statistics),
+    statistics: dto.statistics === null ? null : mapStats(dto.statistics),
     errorCode: dto.errorCode,
     redactedError: dto.redactedError,
     version: num(dto.version),
@@ -237,6 +239,7 @@ function mapMatrixRow(dto: EmployeeScheduleRowResponseDto): EmployeeScheduleRow 
     days: (dto.days ?? []).map(mapDayCell),
     assignedMinutes: num(dto.assignedMinutes),
     targetMinutes: num(dto.targetMinutes),
+    hasWorkProfile: dto.hasWorkProfile,
     plannedOvertimeMinutes: num(dto.plannedOvertimeMinutes),
     weekendShiftCount: num(dto.weekendShiftCount),
     eveningShiftCount: num(dto.eveningShiftCount),
@@ -284,7 +287,41 @@ export function mapCoverageProjectionFromBackend(
     periodStart: dto.periodStart,
     periodEnd: dto.periodEnd,
     scheduleVersion: num(dto.scheduleVersion),
+    hasConfiguredRequirements: dto.hasConfiguredRequirements,
     slots: (dto.slots ?? []).map(mapCoverageSlot),
+  };
+}
+
+export function mapGenerationPreflightFromBackend(
+  dto: ScheduleGenerationPreflightResponseDto,
+): ScheduleGenerationPreflight {
+  return {
+    canStart: dto.canStart,
+    counts: {
+      activeLocationCount: num(dto.counts.activeLocationCount),
+      openingIntervalCount: num(dto.counts.openingIntervalCount),
+      activeShiftTemplateCount: num(dto.counts.activeShiftTemplateCount),
+      applicableShiftTemplateCount: num(dto.counts.applicableShiftTemplateCount),
+      coverageRequirementCount: num(dto.counts.coverageRequirementCount),
+      activeEmployeeCount: num(dto.counts.activeEmployeeCount),
+      schedulableEmployeeCount: num(dto.counts.schedulableEmployeeCount),
+      autoFillEmployeeCount: num(dto.counts.autoFillEmployeeCount),
+      locationAssignedEmployeeCount: num(dto.counts.locationAssignedEmployeeCount),
+      workProfileEmployeeCount: num(dto.counts.workProfileEmployeeCount),
+      capableEmployeeCount: num(dto.counts.capableEmployeeCount),
+      candidateOptionCount: num(dto.counts.candidateOptionCount),
+    },
+    issues: (dto.issues ?? []).map((issue) => ({
+      code: issue.code,
+      severity:
+        issue.severity === "Blocking"
+          ? "blocking"
+          : issue.severity === "Warning"
+            ? "warning"
+            : "info",
+      message: issue.message,
+      settingsPath: issue.settingsPath,
+    })),
   };
 }
 

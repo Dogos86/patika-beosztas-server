@@ -28,6 +28,201 @@ public sealed record ScheduleCandidateBuildResult(
     ScheduleOptimizerInput OptimizerInput,
     IReadOnlyList<ScheduleOptimizationIssue> InputIssues);
 
+public sealed record ScheduleGenerationDiagnosticCounts(
+    int ActiveLocationCount,
+    int OpeningIntervalCount,
+    int ActiveShiftTemplateCount,
+    int ApplicableShiftTemplateCount,
+    int CoverageRequirementCount,
+    int ActiveEmployeeCount,
+    int SchedulableEmployeeCount,
+    int AutoFillEmployeeCount,
+    int LocationAssignedEmployeeCount,
+    int WorkProfileEmployeeCount,
+    int CapableEmployeeCount,
+    int CandidateOptionCount)
+{
+    public IReadOnlyDictionary<string, object?> ToParameters() =>
+        new Dictionary<string, object?>
+        {
+            ["activeLocationCount"] = ActiveLocationCount,
+            ["openingIntervalCount"] = OpeningIntervalCount,
+            ["activeShiftTemplateCount"] = ActiveShiftTemplateCount,
+            ["applicableShiftTemplateCount"] = ApplicableShiftTemplateCount,
+            ["coverageRequirementCount"] = CoverageRequirementCount,
+            ["activeEmployeeCount"] = ActiveEmployeeCount,
+            ["schedulableEmployeeCount"] = SchedulableEmployeeCount,
+            ["autoFillEmployeeCount"] = AutoFillEmployeeCount,
+            ["locationAssignedEmployeeCount"] = LocationAssignedEmployeeCount,
+            ["workProfileEmployeeCount"] = WorkProfileEmployeeCount,
+            ["capableEmployeeCount"] = CapableEmployeeCount,
+            ["candidateOptionCount"] = CandidateOptionCount
+        };
+}
+
+public sealed record ScheduleGenerationPreflightIssue(
+    string Code,
+    ScheduleIssueSeverity Severity,
+    string Message,
+    string? SettingsPath);
+
+public sealed record ScheduleGenerationPreflightResult(
+    ScheduleGenerationDiagnosticCounts Counts,
+    IReadOnlyList<ScheduleGenerationPreflightIssue> Issues)
+{
+    public bool CanStart => Issues.All(issue => issue.Severity != ScheduleIssueSeverity.Blocking);
+}
+
+public static class ScheduleGenerationDiagnostics
+{
+    public static ScheduleGenerationPreflightResult Analyze(
+        ScheduleInputSnapshot snapshot,
+        int candidateOptionCount)
+    {
+        var dates = Enumerable.Range(
+                0,
+                snapshot.PeriodEnd.DayNumber - snapshot.PeriodStart.DayNumber + 1)
+            .Select(snapshot.PeriodStart.AddDays)
+            .ToArray();
+        var weekdays = dates.Select(date => date.DayOfWeek).ToHashSet();
+        var activeLocationIds = snapshot.Locations
+            .Where(location => location.IsActive)
+            .Select(location => location.Id)
+            .ToHashSet();
+        var activeEmployees = snapshot.Employees
+            .Where(employee => employee.IsActive)
+            .ToArray();
+        var schedulableEmployees = activeEmployees
+            .Where(employee => employee.IsSchedulable)
+            .ToArray();
+        var autoFillEmployees = schedulableEmployees
+            .Where(employee => employee.IncludeInAutoFill)
+            .ToArray();
+        var autoFillEmployeeIds = autoFillEmployees.Select(employee => employee.Id).ToHashSet();
+        var workProfileEmployeeIds = snapshot.WorkProfiles
+            .Where(profile => profile.IncludeInAutoFill && autoFillEmployeeIds.Contains(profile.EmployeeId))
+            .Select(profile => profile.EmployeeId)
+            .ToHashSet();
+        var locationAssignedEmployeeIds = snapshot.EmployeeLocations
+            .Where(assignment =>
+                assignment.Enabled &&
+                activeLocationIds.Contains(assignment.LocationId) &&
+                autoFillEmployeeIds.Contains(assignment.EmployeeId))
+            .Select(assignment => assignment.EmployeeId)
+            .ToHashSet();
+        var requiredCapabilities = snapshot.CoverageRequirements
+            .Where(requirement =>
+                requirement.IsActive &&
+                activeLocationIds.Contains(requirement.LocationId) &&
+                weekdays.Contains(requirement.DayOfWeek))
+            .Select(requirement => requirement.RequiredCapability)
+            .ToHashSet();
+        var explicitCapabilities = snapshot.EmployeeCapabilities
+            .GroupBy(item => item.EmployeeId)
+            .ToDictionary(group => group.Key, group => group.Select(item => item.Capability));
+        var capableEmployeeCount = autoFillEmployees.Count(employee =>
+        {
+            var effective = StaffingCapabilityRules.ResolveEffective(
+                explicitCapabilities.GetValueOrDefault(employee.Id, []),
+                employee.ProfessionalRole,
+                employee.CountsAsPharmacist);
+            return requiredCapabilities.Count == 0
+                ? effective.Count > 0
+                : effective.Overlaps(requiredCapabilities);
+        });
+        var counts = new ScheduleGenerationDiagnosticCounts(
+            activeLocationIds.Count,
+            snapshot.OpeningIntervals.Count(interval =>
+                activeLocationIds.Contains(interval.LocationId) &&
+                weekdays.Contains(interval.DayOfWeek) &&
+                interval.Mode != OpeningDayMode.Closed),
+            snapshot.ShiftTemplates.Count(template =>
+                template.IsActive && activeLocationIds.Contains(template.LocationId)),
+            snapshot.ShiftTemplates.Count(template =>
+                template.IsActive &&
+                activeLocationIds.Contains(template.LocationId) &&
+                dates.Any(date => (template.WeekdayMask & (1 << (int)date.DayOfWeek)) != 0)),
+            snapshot.CoverageRequirements.Count(requirement =>
+                requirement.IsActive &&
+                activeLocationIds.Contains(requirement.LocationId) &&
+                weekdays.Contains(requirement.DayOfWeek)),
+            activeEmployees.Length,
+            schedulableEmployees.Length,
+            autoFillEmployees.Length,
+            locationAssignedEmployeeIds.Count,
+            workProfileEmployeeIds.Count,
+            capableEmployeeCount,
+            candidateOptionCount);
+        var issues = new List<ScheduleGenerationPreflightIssue>();
+        AddIfZero(
+            counts.ActiveLocationCount,
+            "NO_ACTIVE_LOCATIONS",
+            "Nincs aktív telephely.",
+            "/app/admin/locations");
+        AddIfZero(
+            counts.OpeningIntervalCount,
+            "NO_OPENING_HOURS",
+            "Nincs a kiválasztott időszakra alkalmazható nyitvatartás.",
+            "/app/admin/locations");
+        AddIfZero(
+            counts.ApplicableShiftTemplateCount,
+            "NO_APPLICABLE_SHIFT_TEMPLATES",
+            "Nincs aktív, a kiválasztott időszakra alkalmazható műszaksablon.",
+            "/app/admin/locations");
+        AddIfZero(
+            counts.CoverageRequirementCount,
+            "NO_COVERAGE_REQUIREMENTS",
+            "Nincs beállított lefedettségi követelmény.",
+            "/app/admin/coverage");
+        AddIfZero(
+            counts.AutoFillEmployeeCount,
+            "NO_ELIGIBLE_EMPLOYEES",
+            "Nincs aktív, beosztható és automatikus kitöltésbe bevont dolgozó.",
+            "/app/admin/employees");
+        if (counts.AutoFillEmployeeCount > counts.WorkProfileEmployeeCount)
+        {
+            issues.Add(new(
+                "MISSING_WORK_PROFILE",
+                ScheduleIssueSeverity.Blocking,
+                $"{counts.AutoFillEmployeeCount - counts.WorkProfileEmployeeCount} dolgozónál hiányzik az aktív munkaidőprofil.",
+                "/app/admin/employees"));
+        }
+
+        if (counts.AutoFillEmployeeCount > counts.LocationAssignedEmployeeCount)
+        {
+            issues.Add(new(
+                "MISSING_LOCATION_ASSIGNMENT",
+                ScheduleIssueSeverity.Blocking,
+                $"{counts.AutoFillEmployeeCount - counts.LocationAssignedEmployeeCount} dolgozónál hiányzik az aktív telephely-hozzárendelés.",
+                "/app/admin/employees"));
+        }
+
+        if (counts.CoverageRequirementCount > 0 && counts.CapableEmployeeCount == 0)
+        {
+            issues.Add(new(
+                "MISSING_REQUIRED_CAPABILITY",
+                ScheduleIssueSeverity.Blocking,
+                "Nincs a lefedettségi követelményekhez szükséges kompetenciával rendelkező dolgozó.",
+                "/app/admin/employees"));
+        }
+
+        AddIfZero(
+            counts.CandidateOptionCount,
+            "NO_CANDIDATE_OPTIONS",
+            "A beállításokból egyetlen beosztható műszakjelölt sem képezhető.",
+            "/app/admin/employees");
+        return new(counts, issues);
+
+        void AddIfZero(int value, string code, string message, string settingsPath)
+        {
+            if (value == 0)
+            {
+                issues.Add(new(code, ScheduleIssueSeverity.Blocking, message, settingsPath));
+            }
+        }
+    }
+}
+
 public static class ScheduleCandidateBuilder
 {
     public static ScheduleCandidateBuildResult Build(
@@ -204,6 +399,19 @@ public static class ScheduleCandidateBuilder
             candidates,
             issues);
         var coverageSlots = BuildCoverageSlots(snapshot, activeLocations.Keys);
+        if (candidates.Count == 0)
+        {
+            var diagnostics = ScheduleGenerationDiagnostics.Analyze(snapshot, 0);
+            issues.Add(new(
+                "NO_CANDIDATE_OPTIONS",
+                ScheduleIssueSeverity.Blocking,
+                null,
+                null,
+                null,
+                null,
+                null,
+                diagnostics.Counts.ToParameters()));
+        }
         var optimizerEmployees = snapshot.Employees
             .Where(employee => profiles.ContainsKey(employee.Id))
             .OrderBy(employee => employee.Id)

@@ -15,6 +15,13 @@ export function isTerminalRunStatus(status: ScheduleGenerationStatus): boolean {
   return TERMINAL.has(status);
 }
 
+export function nextRunPollingInterval(
+  status: ScheduleGenerationStatus | undefined,
+  intervalMs: number,
+): number | false {
+  return status && isTerminalRunStatus(status) ? false : intervalMs;
+}
+
 export function useScheduleRunPolling(runId: string | undefined, intervalMs = 2000) {
   const q = useQuery<ScheduleGenerationRun>({
     enabled: !!runId,
@@ -23,8 +30,7 @@ export function useScheduleRunPolling(runId: string | undefined, intervalMs = 20
     placeholderData: keepPreviousData,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      if (!status) return intervalMs;
-      return isTerminalRunStatus(status) ? false : intervalMs;
+      return nextRunPollingInterval(status, intervalMs);
     },
     refetchIntervalInBackground: false,
   });

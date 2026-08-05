@@ -57,6 +57,7 @@ describe("schedule mappers", () => {
           days: [],
           assignedMinutes: "0",
           targetMinutes: "9600",
+          hasWorkProfile: true,
           plannedOvertimeMinutes: "0",
           weekendShiftCount: "0",
           eveningShiftCount: "0",
@@ -75,6 +76,7 @@ describe("schedule mappers", () => {
       periodStart: "2026-01-05",
       periodEnd: "2026-01-11",
       scheduleVersion: 1,
+      hasConfiguredRequirements: true,
       slots: [
         {
           locationId: "l1",
@@ -209,6 +211,28 @@ describe("schedule mappers", () => {
     });
     expect(run.deterministicSeed).toBe(42);
     expect(run.version).toBe(2);
+
+    const queued = mapGenerationRunFromBackend({
+      ...{
+        id: "r2",
+        schedulePlanId: "sch2",
+        status: "Queued" as const,
+        solverStatus: "NotStarted" as const,
+        requestedAtUtc: "2026-01-01T00:00:00Z",
+        startedAtUtc: null,
+        completedAtUtc: null,
+        cancellationRequestedAtUtc: null,
+        algorithmVersion: "1.0.0",
+        deterministicSeed: 1,
+        inputSnapshotHash: "",
+        objectiveValue: null,
+        errorCode: null,
+        redactedError: null,
+        version: 1,
+      },
+      statistics: null,
+    });
+    expect(queued.statistics).toBeNull();
 
     const plan = mapSchedulePlanFromBackend({
       id: "sch1",
