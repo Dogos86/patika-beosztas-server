@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "http://127.0.0.1:7180/"
+      "url": "http://127.0.0.1:5180/"
     }
   ],
   "paths": {
@@ -13442,6 +13442,95 @@
           }
         }
       },
+      "ScheduleGenerationEmployeeCheckResponse": {
+        "required": [
+          "employeeId",
+          "employeeDisplayName",
+          "isActive",
+          "isSchedulable",
+          "includeInAutoFill",
+          "hasLocationAssignment",
+          "hasWorkProfile",
+          "hasPositiveContractedTime",
+          "hasCapability",
+          "hasBlockingAbsenceOrUnavailable",
+          "candidateOptionCount"
+        ],
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeDisplayName": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "isSchedulable": {
+            "type": "boolean"
+          },
+          "includeInAutoFill": {
+            "type": "boolean"
+          },
+          "hasLocationAssignment": {
+            "type": "boolean"
+          },
+          "hasWorkProfile": {
+            "type": "boolean"
+          },
+          "hasPositiveContractedTime": {
+            "type": "boolean"
+          },
+          "hasCapability": {
+            "type": "boolean"
+          },
+          "hasBlockingAbsenceOrUnavailable": {
+            "type": "boolean"
+          },
+          "candidateOptionCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "ScheduleGenerationLocationCheckResponse": {
+        "required": [
+          "locationId",
+          "locationName",
+          "isActive",
+          "hasOpeningHours",
+          "hasApplicableShiftTemplate",
+          "hasCoverageRequirement"
+        ],
+        "type": "object",
+        "properties": {
+          "locationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "locationName": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "hasOpeningHours": {
+            "type": "boolean"
+          },
+          "hasApplicableShiftTemplate": {
+            "type": "boolean"
+          },
+          "hasCoverageRequirement": {
+            "type": "boolean"
+          }
+        }
+      },
       "ScheduleGenerationPreflightIssueResponse": {
         "required": [
           "code",
@@ -13472,7 +13561,9 @@
         "required": [
           "canStart",
           "counts",
-          "issues"
+          "issues",
+          "locations",
+          "employees"
         ],
         "type": "object",
         "properties": {
@@ -13486,6 +13577,18 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ScheduleGenerationPreflightIssueResponse"
+            }
+          },
+          "locations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleGenerationLocationCheckResponse"
+            }
+          },
+          "employees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleGenerationEmployeeCheckResponse"
             }
           }
         }

@@ -291,10 +291,35 @@ export interface ScheduleGenerationPreflightIssueResponseDto {
   settingsPath: string | null;
 }
 
+export interface ScheduleGenerationLocationCheckResponseDto {
+  locationId: string;
+  locationName: string;
+  isActive: boolean;
+  hasOpeningHours: boolean;
+  hasApplicableShiftTemplate: boolean;
+  hasCoverageRequirement: boolean;
+}
+
+export interface ScheduleGenerationEmployeeCheckResponseDto {
+  employeeId: string;
+  employeeDisplayName: string;
+  isActive: boolean;
+  isSchedulable: boolean;
+  includeInAutoFill: boolean;
+  hasLocationAssignment: boolean;
+  hasWorkProfile: boolean;
+  hasPositiveContractedTime: boolean;
+  hasCapability: boolean;
+  hasBlockingAbsenceOrUnavailable: boolean;
+  candidateOptionCount: IntWire;
+}
+
 export interface ScheduleGenerationPreflightResponseDto {
   canStart: boolean;
   counts: ScheduleGenerationDiagnosticCountsResponseDto;
   issues: ScheduleGenerationPreflightIssueResponseDto[];
+  locations: ScheduleGenerationLocationCheckResponseDto[];
+  employees: ScheduleGenerationEmployeeCheckResponseDto[];
 }
 
 export interface ScheduleIssueResponseDto {

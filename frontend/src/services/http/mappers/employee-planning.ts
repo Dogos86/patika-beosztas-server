@@ -17,6 +17,7 @@ import type {
   UpdateShiftQuotaRuleInput,
 } from "@/services/types";
 import { mapCapabilityFromBackend, mapCapabilityToBackend } from "./coverage";
+import { normalizeConditionalPositiveLimit } from "@/lib/work-profile";
 
 /** A backend számos numerikus mezőt `integer | string` alakban is elfogad. */
 function num(v: number | string): number {
@@ -89,18 +90,48 @@ export function mapWorkProfileUpdateRequest(
     maximumRegularShiftMinutes: wp.maximumRegularShiftMinutes,
     maximumDailyMinutes: wp.maximumDailyMinutes,
     allowsLongShift: wp.allowsLongShift,
-    maximumLongShiftMinutes: wp.maximumLongShiftMinutes,
+    maximumLongShiftMinutes: normalizeConditionalPositiveLimit(
+      wp.allowsLongShift,
+      wp.maximumLongShiftMinutes,
+      "maximumLongShiftMinutes",
+      "LONG_SHIFT_LIMIT_REQUIRED",
+    ),
     allowsFullOpeningHoursShift: wp.allowsFullOpeningHoursShift,
     allowsOvertime: wp.allowsOvertime,
-    maximumOvertimeMinutesPerMonth: wp.maximumOvertimeMinutesPerMonth,
+    maximumOvertimeMinutesPerMonth: normalizeConditionalPositiveLimit(
+      wp.allowsOvertime,
+      wp.maximumOvertimeMinutesPerMonth,
+      "maximumOvertimeMinutesPerMonth",
+      "OVERTIME_LIMIT_REQUIRED",
+    ),
     allowsOnCallDuty: wp.allowsOnCallDuty,
-    maximumOnCallAssignmentsPerMonth: wp.maximumOnCallAssignmentsPerMonth,
+    maximumOnCallAssignmentsPerMonth: normalizeConditionalPositiveLimit(
+      wp.allowsOnCallDuty,
+      wp.maximumOnCallAssignmentsPerMonth,
+      "maximumOnCallAssignmentsPerMonth",
+      "ON_CALL_LIMIT_REQUIRED",
+    ),
     allowsStandby: wp.allowsStandby,
-    maximumStandbyAssignmentsPerMonth: wp.maximumStandbyAssignmentsPerMonth,
+    maximumStandbyAssignmentsPerMonth: normalizeConditionalPositiveLimit(
+      wp.allowsStandby,
+      wp.maximumStandbyAssignmentsPerMonth,
+      "maximumStandbyAssignmentsPerMonth",
+      "STANDBY_LIMIT_REQUIRED",
+    ),
     allowsSaturday: wp.allowsSaturday,
-    maximumSaturdaysPerMonth: wp.maximumSaturdaysPerMonth,
+    maximumSaturdaysPerMonth: normalizeConditionalPositiveLimit(
+      wp.allowsSaturday,
+      wp.maximumSaturdaysPerMonth,
+      "maximumSaturdaysPerMonth",
+      "SATURDAY_LIMIT_REQUIRED",
+    ),
     allowsSunday: wp.allowsSunday,
-    maximumSundaysPerMonth: wp.maximumSundaysPerMonth,
+    maximumSundaysPerMonth: normalizeConditionalPositiveLimit(
+      wp.allowsSunday,
+      wp.maximumSundaysPerMonth,
+      "maximumSundaysPerMonth",
+      "SUNDAY_LIMIT_REQUIRED",
+    ),
     includeInAutoFill: wp.includeInAutoFill,
     expectedVersion: wp.version,
   };

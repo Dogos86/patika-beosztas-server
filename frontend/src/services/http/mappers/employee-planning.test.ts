@@ -11,6 +11,35 @@ import type {
   EmployeeShiftQuotaRuleResponseDto,
   EmployeeWorkProfileResponseDto,
 } from "../dto/employee-planning";
+import type { EmployeeWorkProfile } from "@/services/types";
+
+function workProfile(patch: Partial<EmployeeWorkProfile> = {}): EmployeeWorkProfile {
+  return {
+    id: "wp1",
+    version: 7,
+    contractedMonthlyMinutes: 10_080,
+    contractedWeeklyMinutes: null,
+    standardShiftMinutes: 480,
+    minimumShiftMinutes: 240,
+    maximumRegularShiftMinutes: 600,
+    maximumDailyMinutes: 720,
+    allowsLongShift: true,
+    maximumLongShiftMinutes: 720,
+    allowsFullOpeningHoursShift: true,
+    allowsOvertime: false,
+    maximumOvertimeMinutesPerMonth: null,
+    allowsOnCallDuty: false,
+    maximumOnCallAssignmentsPerMonth: null,
+    allowsStandby: false,
+    maximumStandbyAssignmentsPerMonth: null,
+    allowsSaturday: false,
+    maximumSaturdaysPerMonth: null,
+    allowsSunday: false,
+    maximumSundaysPerMonth: null,
+    includeInAutoFill: true,
+    ...patch,
+  };
+}
 
 describe("employee-planning mapperek", () => {
   it("capabilities: backend PascalCase → UI enum + version (string/number)", () => {
@@ -73,6 +102,32 @@ describe("employee-planning mapperek", () => {
     expect(req.expectedVersion).toBe(2);
     expect(req.allowsLongShift).toBe(true);
     expect(req.maximumOnCallAssignmentsPerMonth).toBe(4);
+  });
+
+  it("true + 720 hosszú műszakot és expectedVersiont küld", () => {
+    const request = mapWorkProfileUpdateRequest(workProfile());
+    expect(request.allowsLongShift).toBe(true);
+    expect(request.maximumLongShiftMinutes).toBe(720);
+    expect(request.expectedVersion).toBe(7);
+    expect(request).toHaveProperty("allowsFullOpeningHoursShift", true);
+    expect(request).not.toHaveProperty("longShiftAllowed");
+    expect(request).not.toHaveProperty("fullOpeningHoursAllowed");
+  });
+
+  it("false esetén nullra normalizálja a hosszú műszak maximumát", () => {
+    const request = mapWorkProfileUpdateRequest(
+      workProfile({ allowsLongShift: false, maximumLongShiftMinutes: 720 }),
+    );
+    expect(request.maximumLongShiftMinutes).toBeNull();
+  });
+
+  it("nem enged true + null/0 hosszú műszak requestet", () => {
+    expect(() =>
+      mapWorkProfileUpdateRequest(workProfile({ maximumLongShiftMinutes: null })),
+    ).toThrow("Hosszú műszak engedélyezésekor adj meg pozitív maximumot.");
+    expect(() => mapWorkProfileUpdateRequest(workProfile({ maximumLongShiftMinutes: 0 }))).toThrow(
+      "Hosszú műszak engedélyezésekor adj meg pozitív maximumot.",
+    );
   });
 
   it("quota rule: backend válasz mappelése", () => {

@@ -45,6 +45,13 @@ import { formatHm, parseHm } from "@/lib/duration";
 import { CAPABILITIES } from "@/lib/capability-map";
 import { toast } from "sonner";
 import { ApiError } from "@/services/http/errors";
+import { hoursAndMinutesToMinutes, splitMinutes } from "@/lib/minutes";
+import {
+  getWorkProfileFieldErrors,
+  refetchEmployeeWorkProfile,
+  setLongShiftAllowed,
+  type WorkProfileField,
+} from "@/lib/work-profile";
 import { X, Plus, Save } from "lucide-react";
 import { useRequirePermission } from "@/components/common/PermissionGate";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -451,24 +458,29 @@ function MinutesField({
   value,
   onChange,
   hint,
+  disabled = false,
+  error,
 }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
   hint?: string;
+  disabled?: boolean;
+  error?: string;
 }) {
-  const h = Math.floor(value / 60);
-  const m = value % 60;
+  const { hours, minutes } = splitMinutes(value);
   return (
-    <div className="space-y-2">
+    <div className={`space-y-2 ${disabled ? "opacity-50" : ""}`}>
       <Label>{label}</Label>
       <div className="flex items-center gap-2">
         <Input
           type="number"
           min={0}
           className="w-20"
-          value={h}
-          onChange={(e) => onChange(Number(e.target.value) * 60 + m)}
+          value={hours}
+          disabled={disabled}
+          aria-invalid={!!error}
+          onChange={(e) => onChange(hoursAndMinutesToMinutes(Number(e.target.value), minutes))}
         />
         <span className="text-sm text-muted-foreground">ó</span>
         <Input
@@ -476,12 +488,15 @@ function MinutesField({
           min={0}
           max={59}
           className="w-20"
-          value={m}
-          onChange={(e) => onChange(h * 60 + Number(e.target.value))}
+          value={minutes}
+          disabled={disabled}
+          aria-invalid={!!error}
+          onChange={(e) => onChange(hoursAndMinutesToMinutes(hours, Number(e.target.value)))}
         />
         <span className="text-sm text-muted-foreground">p</span>
         <span className="text-xs text-muted-foreground ml-2">≈ {minutesToHuman(value)}</span>
       </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
@@ -681,6 +696,7 @@ function WorkProfileTab({ employeeId }: { employeeId: string }) {
     queryFn: () => services.employee.getWorkProfile(employeeId),
   });
   const [form, setForm] = useState<EmployeeWorkProfile | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<WorkProfileField, string>>>({});
   useEffect(() => {
     if (q.isSuccess && form === null) setForm(q.data ?? emptyWorkProfile());
   }, [q.isSuccess, q.data, form]);
@@ -690,16 +706,45 @@ function WorkProfileTab({ employeeId }: { employeeId: string }) {
       if (!form) throw new Error("Nincs adat.");
       return services.employee.updateWorkProfile(employeeId, form);
     },
-    onSuccess: (data) => {
-      toast.success("Munkaidőprofil mentve");
+    onMutate: () => setFieldErrors({}),
+    onSuccess: async (data) => {
       setForm(data);
-      qc.setQueryData(["employee-work-profile", employeeId], data);
+      const refreshed = await refetchEmployeeWorkProfile(qc, employeeId, () =>
+        services.employee.getWorkProfile(employeeId),
+      );
+      setForm(refreshed ?? data);
+      toast.success("Munkaidőprofil mentve");
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Mentés sikertelen"),
+    onError: async (err) => {
+      const errors = getWorkProfileFieldErrors(err);
+      setFieldErrors(errors);
+      if (err instanceof ApiError && err.code === "CONFLICT") {
+        const refreshed = await refetchEmployeeWorkProfile(qc, employeeId, () =>
+          services.employee.getWorkProfile(employeeId),
+        );
+        if (refreshed) setForm(refreshed);
+        toast.error("A munkaidőprofil közben frissült. Az adatokat újratöltöttük.");
+        return;
+      }
+      toast.error(
+        Object.keys(errors).length > 0
+          ? "Ellenőrizd a megjelölt mezőket."
+          : "A munkaidőprofil mentése nem sikerült.",
+      );
+    },
   });
 
   if (q.isLoading || !form) return <LoadingState />;
-  const set = (patch: Partial<EmployeeWorkProfile>) => setForm({ ...form, ...patch });
+  const set = (patch: Partial<EmployeeWorkProfile>) => {
+    setForm({ ...form, ...patch });
+    setFieldErrors((current) => {
+      const next = { ...current };
+      for (const field of Object.keys(patch)) {
+        delete next[field as WorkProfileField];
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -722,11 +767,13 @@ function WorkProfileTab({ employeeId }: { employeeId: string }) {
             <MinutesField
               label="Havi szerződéses idő"
               value={form.contractedMonthlyMinutes}
+              error={fieldErrors.contractedMonthlyMinutes}
               onChange={(v) => set({ contractedMonthlyMinutes: v })}
             />
             <MinutesField
               label="Heti szerződéses idő (opcionális)"
               value={form.contractedWeeklyMinutes ?? 0}
+              error={fieldErrors.contractedWeeklyMinutes}
               onChange={(v) => set({ contractedWeeklyMinutes: v > 0 ? v : null })}
             />
             <SwitchRow
@@ -744,21 +791,25 @@ function WorkProfileTab({ employeeId }: { employeeId: string }) {
             <MinutesField
               label="Standard műszak"
               value={form.standardShiftMinutes}
+              error={fieldErrors.standardShiftMinutes}
               onChange={(v) => set({ standardShiftMinutes: v })}
             />
             <MinutesField
               label="Minimum műszak"
               value={form.minimumShiftMinutes}
+              error={fieldErrors.minimumShiftMinutes}
               onChange={(v) => set({ minimumShiftMinutes: v })}
             />
             <MinutesField
               label="Maximum normál műszak"
               value={form.maximumRegularShiftMinutes}
+              error={fieldErrors.maximumRegularShiftMinutes}
               onChange={(v) => set({ maximumRegularShiftMinutes: v })}
             />
             <MinutesField
               label="Napi teljes maximum"
               value={form.maximumDailyMinutes}
+              error={fieldErrors.maximumDailyMinutes}
               onChange={(v) => set({ maximumDailyMinutes: v })}
             />
           </CardContent>
@@ -771,15 +822,27 @@ function WorkProfileTab({ employeeId }: { employeeId: string }) {
             <SwitchRow
               label="Hosszú műszak engedélyezett"
               checked={form.allowsLongShift}
-              onChange={(v) => set({ allowsLongShift: v })}
+              onChange={(v) => {
+                setForm(setLongShiftAllowed(form, v));
+                setFieldErrors((current) => ({
+                  ...current,
+                  maximumLongShiftMinutes: undefined,
+                }));
+              }}
             />
-            {form.allowsLongShift && (
-              <MinutesField
-                label="Hosszú műszak maximum"
-                value={form.maximumLongShiftMinutes ?? 12 * 60}
-                onChange={(v) => set({ maximumLongShiftMinutes: v })}
-              />
-            )}
+            <MinutesField
+              label="Hosszú műszak maximum"
+              value={form.maximumLongShiftMinutes ?? 0}
+              disabled={!form.allowsLongShift}
+              error={fieldErrors.maximumLongShiftMinutes}
+              onChange={(v) => {
+                set({ maximumLongShiftMinutes: v });
+                setFieldErrors((current) => ({
+                  ...current,
+                  maximumLongShiftMinutes: undefined,
+                }));
+              }}
+            />
             <SwitchRow
               label="Teljes nyitvatartás lefedhető"
               checked={form.allowsFullOpeningHoursShift}
@@ -788,12 +851,18 @@ function WorkProfileTab({ employeeId }: { employeeId: string }) {
             <SwitchRow
               label="Túlóra engedélyezett"
               checked={form.allowsOvertime}
-              onChange={(v) => set({ allowsOvertime: v })}
+              onChange={(v) =>
+                set({
+                  allowsOvertime: v,
+                  maximumOvertimeMinutesPerMonth: v ? form.maximumOvertimeMinutesPerMonth : null,
+                })
+              }
             />
             {form.allowsOvertime && (
               <MinutesField
                 label="Havi túlóra maximum"
                 value={form.maximumOvertimeMinutesPerMonth ?? 0}
+                error={fieldErrors.maximumOvertimeMinutesPerMonth}
                 onChange={(v) => set({ maximumOvertimeMinutesPerMonth: v > 0 ? v : null })}
               />
             )}
@@ -813,6 +882,7 @@ function WorkProfileTab({ employeeId }: { employeeId: string }) {
               <CountField
                 label="Havi ügyelet maximum (alkalom)"
                 value={form.maximumOnCallAssignmentsPerMonth}
+                error={fieldErrors.maximumOnCallAssignmentsPerMonth}
                 onChange={(v) => set({ maximumOnCallAssignmentsPerMonth: v })}
               />
             )}
@@ -825,6 +895,7 @@ function WorkProfileTab({ employeeId }: { employeeId: string }) {
               <CountField
                 label="Havi készenlét maximum (alkalom)"
                 value={form.maximumStandbyAssignmentsPerMonth}
+                error={fieldErrors.maximumStandbyAssignmentsPerMonth}
                 onChange={(v) => set({ maximumStandbyAssignmentsPerMonth: v })}
               />
             )}
@@ -837,6 +908,7 @@ function WorkProfileTab({ employeeId }: { employeeId: string }) {
               <CountField
                 label="Havi szombat maximum"
                 value={form.maximumSaturdaysPerMonth}
+                error={fieldErrors.maximumSaturdaysPerMonth}
                 onChange={(v) => set({ maximumSaturdaysPerMonth: v })}
               />
             )}
@@ -849,6 +921,7 @@ function WorkProfileTab({ employeeId }: { employeeId: string }) {
               <CountField
                 label="Havi vasárnap maximum"
                 value={form.maximumSundaysPerMonth}
+                error={fieldErrors.maximumSundaysPerMonth}
                 onChange={(v) => set({ maximumSundaysPerMonth: v })}
               />
             )}
@@ -863,10 +936,12 @@ function CountField({
   label,
   value,
   onChange,
+  error,
 }: {
   label: string;
   value: number | null;
   onChange: (v: number | null) => void;
+  error?: string;
 }) {
   return (
     <div className="space-y-2">
@@ -875,8 +950,10 @@ function CountField({
         type="number"
         min={0}
         value={value ?? ""}
+        aria-invalid={!!error}
         onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
       />
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }

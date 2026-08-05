@@ -431,6 +431,8 @@ public sealed class Phase2BRuntimeTests
         var created = await ReadAsync<EmployeeWorkProfileResponse>(createResponse);
         Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
         Assert.AreEqual(9_600, created.ContractedMonthlyMinutes);
+        Assert.IsTrue(created.AllowsLongShift);
+        Assert.AreEqual(720, created.MaximumLongShiftMinutes);
 
         var updateRequest = request with
         {
@@ -446,6 +448,20 @@ public sealed class Phase2BRuntimeTests
         var updated = await ReadAsync<EmployeeWorkProfileResponse>(updateResponse);
         Assert.AreEqual(HttpStatusCode.OK, updateResponse.StatusCode);
         Assert.AreEqual(10_000, updated.ContractedMonthlyMinutes);
+
+        using var disableLongShiftResponse = await SendWithCsrfAsync(
+            HttpMethod.Put,
+            $"/api/admin/employees/{IntegrationTestData.RegularEmployeeId}/work-profile",
+            updateRequest with
+            {
+                AllowsLongShift = false,
+                MaximumLongShiftMinutes = null,
+                ExpectedVersion = updated.Version
+            });
+        var longShiftDisabled = await ReadAsync<EmployeeWorkProfileResponse>(
+            disableLongShiftResponse);
+        Assert.IsFalse(longShiftDisabled.AllowsLongShift);
+        Assert.IsNull(longShiftDisabled.MaximumLongShiftMinutes);
 
         using var staleResponse = await SendWithCsrfAsync(
             HttpMethod.Put,
@@ -463,6 +479,17 @@ public sealed class Phase2BRuntimeTests
                 MaximumRegularShiftMinutes = 400
             });
         Assert.AreEqual(HttpStatusCode.UnprocessableEntity, invalidResponse.StatusCode);
+
+        using var invalidLongShiftResponse = await SendWithCsrfAsync(
+            HttpMethod.Put,
+            $"/api/admin/employees/{IntegrationTestData.OfflineEmployeeId}/work-profile",
+            request with { MaximumLongShiftMinutes = null });
+        Assert.AreEqual(
+            HttpStatusCode.UnprocessableEntity,
+            invalidLongShiftResponse.StatusCode);
+        var invalidLongShiftProblem = await invalidLongShiftResponse.Content.ReadAsStringAsync();
+        StringAssert.Contains(invalidLongShiftProblem, "LONG_SHIFT_LIMIT_REQUIRED");
+        StringAssert.Contains(invalidLongShiftProblem, "maximumLongShiftMinutes");
 
         using var missingCsrf = await client.PutAsJsonAsync(
             $"/api/admin/employees/{IntegrationTestData.OfflineEmployeeId}/work-profile",
@@ -483,7 +510,7 @@ public sealed class Phase2BRuntimeTests
         Assert.AreEqual(10_000, employee.MonthlyMinutesLimit);
         Assert.AreEqual(660, employee.MaxDailyMinutes);
         Assert.AreEqual(
-            2,
+            3,
             await dbContext.AuditLogs.CountAsync(log =>
                 log.EntityId == created.Id.ToString()));
     }

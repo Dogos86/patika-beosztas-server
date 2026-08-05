@@ -128,6 +128,24 @@ tokenfrissítéskor közös Promise-t használ, és `INVALID_CSRF_TOKEN` után c
 egyszer küldi újra az eredeti kérést. A generálás, újragenerálás és Draft-klón
 idempotenciakulcsa az újrapróbálás során változatlan.
 
+## Munkaidőprofil és generálási preflight
+
+A munkaidőprofil frontendje az óra/perc bevitelt minden mezőnél egész percre
+alakítja. A feltételes korlátokat a request mapper normalizálja: kikapcsolt
+vállalásnál `null`, bekapcsolt vállalásnál kötelező pozitív érték kerülhet a
+kérésbe. A frontend és az OpenAPI kanonikus mezőnevei többek között
+`allowsLongShift`, `maximumLongShiftMinutes` és
+`allowsFullOpeningHoursShift`; kompatibilitási cast vagy alternatív mezőnév
+nincs. Sikeres mentés és 409-es verzióütközés után a kliens újratölti a profilt,
+így az `id` és `version` mindig a backend állapotát követi.
+
+A generálási preflight az összesítések mellett telephely- és dolgozószintű
+ellenőrzéseket is visszaad. A felület külön jelzi a nyitvatartás, műszaksablon,
+lefedettség, telephely-hozzárendelés, munkaidőprofil, pozitív szerződéses idő,
+kompetencia és blokkoló elérhetőség állapotát. A blokkoló hiányok letiltják az
+indítást, név szerinti magyar üzenetet és közvetlen javítási hivatkozást adnak;
+nulla jelölt esetén a `NO_CANDIDATE_OPTIONS` továbbra is blokkoló.
+
 Az API és a Railway web gateway az `/api/auth/csrf` választ `no-store`
 fejléccel adja; a gateway a bejövő `Cookie` és a különálló kimenő `Set-Cookie`
 fejléceket veszteség nélkül továbbítja. A session-életciklus integrációs teszt

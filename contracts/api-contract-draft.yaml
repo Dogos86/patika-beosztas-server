@@ -2582,18 +2582,18 @@ components:
         maximumRegularShiftMinutes: { type: integer, minimum: 1, maximum: 1440 }
         maximumDailyMinutes: { type: integer, minimum: 1, maximum: 1440 }
         allowsLongShift: { type: boolean }
-        maximumLongShiftMinutes: { type: [integer, 'null'], minimum: 0, maximum: 1440 }
+        maximumLongShiftMinutes: { type: [integer, 'null'], minimum: 1, maximum: 1440 }
         allowsFullOpeningHoursShift: { type: boolean }
         allowsOvertime: { type: boolean }
-        maximumOvertimeMinutesPerMonth: { type: [integer, 'null'], minimum: 0 }
+        maximumOvertimeMinutesPerMonth: { type: [integer, 'null'], minimum: 1 }
         allowsOnCallDuty: { type: boolean }
-        maximumOnCallAssignmentsPerMonth: { type: [integer, 'null'], minimum: 0 }
+        maximumOnCallAssignmentsPerMonth: { type: [integer, 'null'], minimum: 1 }
         allowsStandby: { type: boolean }
-        maximumStandbyAssignmentsPerMonth: { type: [integer, 'null'], minimum: 0 }
+        maximumStandbyAssignmentsPerMonth: { type: [integer, 'null'], minimum: 1 }
         allowsSaturday: { type: boolean }
-        maximumSaturdaysPerMonth: { type: [integer, 'null'], minimum: 0 }
+        maximumSaturdaysPerMonth: { type: [integer, 'null'], minimum: 1 }
         allowsSunday: { type: boolean }
-        maximumSundaysPerMonth: { type: [integer, 'null'], minimum: 0 }
+        maximumSundaysPerMonth: { type: [integer, 'null'], minimum: 1 }
         includeInAutoFill: { type: boolean }
         expectedVersion: { type: [integer, 'null'], minimum: 1 }
     EmployeeWorkProfileResponse:
@@ -2629,18 +2629,18 @@ components:
         maximumRegularShiftMinutes: { type: integer, minimum: 1, maximum: 1440 }
         maximumDailyMinutes: { type: integer, minimum: 1, maximum: 1440 }
         allowsLongShift: { type: boolean }
-        maximumLongShiftMinutes: { type: [integer, 'null'], minimum: 0, maximum: 1440 }
+        maximumLongShiftMinutes: { type: [integer, 'null'], minimum: 1, maximum: 1440 }
         allowsFullOpeningHoursShift: { type: boolean }
         allowsOvertime: { type: boolean }
-        maximumOvertimeMinutesPerMonth: { type: [integer, 'null'], minimum: 0 }
+        maximumOvertimeMinutesPerMonth: { type: [integer, 'null'], minimum: 1 }
         allowsOnCallDuty: { type: boolean }
-        maximumOnCallAssignmentsPerMonth: { type: [integer, 'null'], minimum: 0 }
+        maximumOnCallAssignmentsPerMonth: { type: [integer, 'null'], minimum: 1 }
         allowsStandby: { type: boolean }
-        maximumStandbyAssignmentsPerMonth: { type: [integer, 'null'], minimum: 0 }
+        maximumStandbyAssignmentsPerMonth: { type: [integer, 'null'], minimum: 1 }
         allowsSaturday: { type: boolean }
-        maximumSaturdaysPerMonth: { type: [integer, 'null'], minimum: 0 }
+        maximumSaturdaysPerMonth: { type: [integer, 'null'], minimum: 1 }
         allowsSunday: { type: boolean }
-        maximumSundaysPerMonth: { type: [integer, 'null'], minimum: 0 }
+        maximumSundaysPerMonth: { type: [integer, 'null'], minimum: 1 }
         includeInAutoFill: { type: boolean }
         version: { type: integer, minimum: 1 }
         createdAtUtc: { type: string, format: date-time }

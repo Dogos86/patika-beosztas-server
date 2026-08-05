@@ -178,6 +178,31 @@ describe("generálás start / poll / cancel", () => {
             settingsPath: "/app/admin/employees",
           },
         ],
+        locations: [
+          {
+            locationId: "l1",
+            locationName: "Központ",
+            isActive: true,
+            hasOpeningHours: true,
+            hasApplicableShiftTemplate: false,
+            hasCoverageRequirement: false,
+          },
+        ],
+        employees: [
+          {
+            employeeId: "e1",
+            employeeDisplayName: "Fogaras Tímea",
+            isActive: true,
+            isSchedulable: true,
+            includeInAutoFill: true,
+            hasLocationAssignment: false,
+            hasWorkProfile: false,
+            hasPositiveContractedTime: false,
+            hasCapability: true,
+            hasBlockingAbsenceOrUnavailable: false,
+            candidateOptionCount: "0",
+          },
+        ],
       }),
     );
     const result = await httpServices.scheduleGeneration.preflight({
@@ -189,6 +214,15 @@ describe("generálás start / poll / cancel", () => {
     expect(result.canStart).toBe(false);
     expect(result.counts.candidateOptionCount).toBe(0);
     expect(result.issues[0].severity).toBe("blocking");
+    expect(result.locations[0]).toMatchObject({
+      locationName: "Központ",
+      hasApplicableShiftTemplate: false,
+    });
+    expect(result.employees[0]).toMatchObject({
+      employeeDisplayName: "Fogaras Tímea",
+      hasWorkProfile: false,
+      candidateOptionCount: 0,
+    });
   });
 
   it("start POST-ol és leképezi a futást", async () => {

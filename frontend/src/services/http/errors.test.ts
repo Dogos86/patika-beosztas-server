@@ -42,4 +42,17 @@ describe("mapErrorResponse", () => {
     });
     expect(err.fieldErrors?.email).toEqual(["kötelező", "formátum"]);
   });
+
+  it("422 array-alakú errors mezőnként megőrzi a validációs kódot", () => {
+    const err = mapErrorResponse(422, {
+      errors: [
+        {
+          field: "maximumLongShiftMinutes",
+          code: "LONG_SHIFT_LIMIT_REQUIRED",
+          message: "Hibás",
+        },
+      ],
+    });
+    expect(err.fieldErrorCodes?.maximumLongShiftMinutes).toEqual(["LONG_SHIFT_LIMIT_REQUIRED"]);
+  });
 });

@@ -337,6 +337,25 @@ public sealed class OperationalEndpointTests
             schemas.GetProperty("EmployeeWorkProfileResponse")
                 .GetProperty("properties")
                 .TryGetProperty("maximumDailyMinutes", out _));
+        var workProfileRequestProperties = schemas
+            .GetProperty("UpdateEmployeeWorkProfileRequest")
+            .GetProperty("properties");
+        Assert.IsTrue(workProfileRequestProperties.TryGetProperty("allowsLongShift", out _));
+        Assert.IsTrue(workProfileRequestProperties.TryGetProperty(
+            "maximumLongShiftMinutes",
+            out _));
+        Assert.IsTrue(workProfileRequestProperties.TryGetProperty(
+            "allowsFullOpeningHoursShift",
+            out _));
+        Assert.IsFalse(workProfileRequestProperties.TryGetProperty("longShiftAllowed", out _));
+        Assert.IsFalse(workProfileRequestProperties.TryGetProperty(
+            "fullOpeningHoursAllowed",
+            out _));
+        var preflightProperties = schemas
+            .GetProperty("ScheduleGenerationPreflightResponse")
+            .GetProperty("properties");
+        Assert.IsTrue(preflightProperties.TryGetProperty("locations", out _));
+        Assert.IsTrue(preflightProperties.TryGetProperty("employees", out _));
         Assert.Contains("StaffingCapability", body, StringComparison.Ordinal);
         Assert.Contains("ManageCoverageRules", body, StringComparison.Ordinal);
         Assert.DoesNotContain("WeekendWork", body, StringComparison.Ordinal);

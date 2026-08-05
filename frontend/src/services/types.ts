@@ -821,10 +821,35 @@ export interface ScheduleGenerationPreflightIssue {
   settingsPath: string | null;
 }
 
+export interface ScheduleGenerationLocationCheck {
+  locationId: string;
+  locationName: string;
+  isActive: boolean;
+  hasOpeningHours: boolean;
+  hasApplicableShiftTemplate: boolean;
+  hasCoverageRequirement: boolean;
+}
+
+export interface ScheduleGenerationEmployeeCheck {
+  employeeId: string;
+  employeeDisplayName: string;
+  isActive: boolean;
+  isSchedulable: boolean;
+  includeInAutoFill: boolean;
+  hasLocationAssignment: boolean;
+  hasWorkProfile: boolean;
+  hasPositiveContractedTime: boolean;
+  hasCapability: boolean;
+  hasBlockingAbsenceOrUnavailable: boolean;
+  candidateOptionCount: number;
+}
+
 export interface ScheduleGenerationPreflight {
   canStart: boolean;
   counts: ScheduleGenerationDiagnosticCounts;
   issues: ScheduleGenerationPreflightIssue[];
+  locations: ScheduleGenerationLocationCheck[];
+  employees: ScheduleGenerationEmployeeCheck[];
 }
 
 export interface ScheduleIssueRow {

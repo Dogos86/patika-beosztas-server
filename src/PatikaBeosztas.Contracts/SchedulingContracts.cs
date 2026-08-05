@@ -96,10 +96,33 @@ public sealed record ScheduleGenerationPreflightIssueResponse(
     string Message,
     string? SettingsPath);
 
+public sealed record ScheduleGenerationLocationCheckResponse(
+    Guid LocationId,
+    string LocationName,
+    bool IsActive,
+    bool HasOpeningHours,
+    bool HasApplicableShiftTemplate,
+    bool HasCoverageRequirement);
+
+public sealed record ScheduleGenerationEmployeeCheckResponse(
+    Guid EmployeeId,
+    string EmployeeDisplayName,
+    bool IsActive,
+    bool IsSchedulable,
+    bool IncludeInAutoFill,
+    bool HasLocationAssignment,
+    bool HasWorkProfile,
+    bool HasPositiveContractedTime,
+    bool HasCapability,
+    bool HasBlockingAbsenceOrUnavailable,
+    int CandidateOptionCount);
+
 public sealed record ScheduleGenerationPreflightResponse(
     bool CanStart,
     ScheduleGenerationReadinessCountsResponse Counts,
-    IReadOnlyList<ScheduleGenerationPreflightIssueResponse> Issues);
+    IReadOnlyList<ScheduleGenerationPreflightIssueResponse> Issues,
+    IReadOnlyList<ScheduleGenerationLocationCheckResponse> Locations,
+    IReadOnlyList<ScheduleGenerationEmployeeCheckResponse> Employees);
 
 public sealed record ScheduleListItemResponse(
     Guid Id,

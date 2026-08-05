@@ -322,6 +322,27 @@ export function mapGenerationPreflightFromBackend(
       message: issue.message,
       settingsPath: issue.settingsPath,
     })),
+    locations: (dto.locations ?? []).map((location) => ({
+      locationId: location.locationId,
+      locationName: location.locationName,
+      isActive: location.isActive,
+      hasOpeningHours: location.hasOpeningHours,
+      hasApplicableShiftTemplate: location.hasApplicableShiftTemplate,
+      hasCoverageRequirement: location.hasCoverageRequirement,
+    })),
+    employees: (dto.employees ?? []).map((employee) => ({
+      employeeId: employee.employeeId,
+      employeeDisplayName: employee.employeeDisplayName,
+      isActive: employee.isActive,
+      isSchedulable: employee.isSchedulable,
+      includeInAutoFill: employee.includeInAutoFill,
+      hasLocationAssignment: employee.hasLocationAssignment,
+      hasWorkProfile: employee.hasWorkProfile,
+      hasPositiveContractedTime: employee.hasPositiveContractedTime,
+      hasCapability: employee.hasCapability,
+      hasBlockingAbsenceOrUnavailable: employee.hasBlockingAbsenceOrUnavailable,
+      candidateOptionCount: num(employee.candidateOptionCount),
+    })),
   };
 }
 

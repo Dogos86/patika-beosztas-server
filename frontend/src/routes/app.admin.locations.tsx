@@ -22,7 +22,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { LoadingState } from "@/components/common/states";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Location } from "@/services/types";
 import type { CreateLocationInput } from "@/services/interfaces";
 import { toast } from "sonner";
@@ -33,6 +33,9 @@ import { LocationOpeningHoursTab } from "@/components/locations/LocationOpeningH
 import { ShiftTemplatesEditor } from "@/components/locations/ShiftTemplatesEditor";
 
 export const Route = createFileRoute("/app/admin/locations")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    locationId: typeof search.locationId === "string" ? search.locationId : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Telephelyek — Patika Beosztás" },
@@ -54,6 +57,8 @@ function emptyDraft(): CreateLocationInput {
 function LocationsPage() {
   const denied = useRequirePermission(["ManageLocations"]);
   const qc = useQueryClient();
+  const { locationId: linkedLocationId } = Route.useSearch();
+  const openedLinkedLocation = useRef<string | null>(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [includeInactive, setIncludeInactive] = useState(true);
@@ -66,6 +71,26 @@ function LocationsPage() {
     queryFn: () =>
       services.location.listPaged({ page, pageSize: PAGE_SIZE, search, includeInactive }),
   });
+  const linkedLocationQ = useQuery({
+    queryKey: ["location", linkedLocationId],
+    queryFn: () => services.location.get(linkedLocationId!),
+    enabled: !!linkedLocationId,
+  });
+
+  useEffect(() => {
+    const location = linkedLocationQ.data;
+    if (!linkedLocationId || !location || openedLinkedLocation.current === linkedLocationId) {
+      return;
+    }
+    openedLinkedLocation.current = linkedLocationId;
+    setEditing(location);
+    setBasic({
+      name: location.name,
+      kind: location.kind,
+      address: location.address ?? "",
+      active: location.active,
+    });
+  }, [linkedLocationId, linkedLocationQ.data]);
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["locations"] });

@@ -207,7 +207,7 @@ function SchedulesListPage() {
                 </p>
                 {preflight.data.issues.map((issue) => (
                   <div
-                    key={issue.code}
+                    key={`${issue.code}-${issue.settingsPath}-${issue.message}`}
                     className={
                       issue.severity === "blocking"
                         ? "text-sm text-destructive"
@@ -217,11 +217,71 @@ function SchedulesListPage() {
                     <span>{issue.message}</span>{" "}
                     {issue.settingsPath && (
                       <a className="underline" href={issue.settingsPath}>
-                        Beállítás megnyitása
+                        Megnyitás
                       </a>
                     )}
                   </div>
                 ))}
+                <div className="space-y-1 border-t pt-2">
+                  <p className="text-sm font-medium">Telephelyenként</p>
+                  {preflight.data.locations.map((location) => (
+                    <div key={location.locationId} className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">{location.locationName}</span>
+                      {" · "}
+                      {location.isActive ? "aktív" : "inaktív"}
+                      {" · "}
+                      {location.hasOpeningHours ? "nyitvatartás ✓" : "nyitvatartás hiányzik"}
+                      {" · "}
+                      {location.hasApplicableShiftTemplate
+                        ? "műszaksablon ✓"
+                        : "műszaksablon hiányzik"}
+                      {" · "}
+                      {location.hasCoverageRequirement
+                        ? "lefedettségi szabály ✓"
+                        : "lefedettségi szabály hiányzik"}{" "}
+                      <a
+                        className="underline"
+                        href={`/app/admin/locations?locationId=${location.locationId}`}
+                      >
+                        Megnyitás
+                      </a>
+                    </div>
+                  ))}
+                </div>
+                <div className="max-h-48 space-y-1 overflow-auto border-t pt-2">
+                  <p className="text-sm font-medium">Dolgozónként</p>
+                  {preflight.data.employees.map((employee) => (
+                    <div key={employee.employeeId} className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        {employee.employeeDisplayName}
+                      </span>
+                      {" · "}
+                      {employee.isActive ? "aktív" : "inaktív"}
+                      {" · "}
+                      {employee.isSchedulable ? "beosztható" : "nem beosztható"}
+                      {" · "}
+                      {employee.includeInAutoFill ? "autofill ✓" : "autofill kikapcsolva"}
+                      {" · "}
+                      {employee.hasLocationAssignment ? "telephely ✓" : "telephely hiányzik"}
+                      {" · "}
+                      {employee.hasWorkProfile ? "munkaidőprofil ✓" : "munkaidőprofil hiányzik"}
+                      {" · "}
+                      {employee.hasPositiveContractedTime
+                        ? "szerződéses idő ✓"
+                        : "szerződéses idő hiányzik"}
+                      {" · "}
+                      {employee.hasCapability ? "kompetencia ✓" : "kompetencia hiányzik"}
+                      {" · "}
+                      {employee.hasBlockingAbsenceOrUnavailable
+                        ? "távollét/Unavailable érinti"
+                        : "nincs blokkoló távollét"}
+                      {` · ${employee.candidateOptionCount} jelölt `}
+                      <a className="underline" href={`/app/admin/employees/${employee.employeeId}`}>
+                        Megnyitás
+                      </a>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             {preflight.error && (

@@ -398,12 +398,18 @@ public sealed class ScheduleGoldenScenarioTests
 
         var preflight = ScheduleGenerationDiagnostics.Analyze(
             snapshot,
-            build.OptimizerInput.Candidates.Count);
+            build.OptimizerInput.Candidates.Count,
+            build.OptimizerInput.Candidates);
 
         Assert.IsFalse(preflight.CanStart);
         Assert.IsTrue(preflight.Issues.Any(issue =>
             issue.Code == "NO_COVERAGE_REQUIREMENTS"));
         Assert.AreEqual(0, preflight.Counts.CoverageRequirementCount);
+        var location = preflight.Locations.Single();
+        Assert.IsTrue(location.IsActive);
+        Assert.IsTrue(location.HasOpeningHours);
+        Assert.IsTrue(location.HasApplicableShiftTemplate);
+        Assert.IsFalse(location.HasCoverageRequirement);
     }
 
     [TestMethod]
@@ -426,7 +432,8 @@ public sealed class ScheduleGoldenScenarioTests
 
         var preflight = ScheduleGenerationDiagnostics.Analyze(
             snapshot,
-            build.OptimizerInput.Candidates.Count);
+            build.OptimizerInput.Candidates.Count,
+            build.OptimizerInput.Candidates);
 
         Assert.IsTrue(preflight.Issues.Any(issue =>
             issue.Code == "MISSING_WORK_PROFILE"));
@@ -436,6 +443,58 @@ public sealed class ScheduleGoldenScenarioTests
             issue.Code == "NO_CANDIDATE_OPTIONS"));
         Assert.AreEqual(0, preflight.Counts.WorkProfileEmployeeCount);
         Assert.AreEqual(0, preflight.Counts.LocationAssignedEmployeeCount);
+        var employee = preflight.Employees.Single();
+        Assert.IsFalse(employee.HasWorkProfile);
+        Assert.IsFalse(employee.HasLocationAssignment);
+        Assert.IsTrue(preflight.Issues.Any(issue =>
+            issue.SettingsPath == $"/app/admin/employees/{employee.EmployeeId}"));
+    }
+
+    [TestMethod]
+    public void PreflightReportsNonPositiveContractAndBlockingAvailabilityPerEmployee()
+    {
+        var scenario = new Scenario(Monday, Monday);
+        var locationId = scenario.AddLocation("Központ");
+        var employeeId = scenario.AddEmployee(
+            locationId,
+            StaffingCapability.Pharmacist,
+            contractedMonthlyMinutes: 0,
+            contractedWeeklyMinutes: 0);
+        scenario.AddTemplate(locationId, new(8, 0), new(16, 0));
+        scenario.AddCoverage(
+            locationId,
+            Monday.DayOfWeek,
+            StaffingCapability.Pharmacist,
+            new(8, 0),
+            new(16, 0));
+        scenario.Preferences.Add(new(
+            Guid.NewGuid(),
+            employeeId,
+            WorkPreferenceType.Unavailable,
+            Monday,
+            Monday,
+            null,
+            IsFullDay: true,
+            null,
+            null,
+            null,
+            IsActive: true));
+        var snapshot = scenario.Build();
+        var build = ScheduleCandidateBuilder.Build(snapshot, "hash");
+
+        var preflight = ScheduleGenerationDiagnostics.Analyze(
+            snapshot,
+            build.OptimizerInput.Candidates.Count,
+            build.OptimizerInput.Candidates);
+
+        var employee = preflight.Employees.Single();
+        Assert.IsFalse(employee.HasPositiveContractedTime);
+        Assert.IsTrue(employee.HasBlockingAbsenceOrUnavailable);
+        Assert.AreEqual(0, employee.CandidateOptionCount);
+        Assert.IsTrue(preflight.Issues.Any(issue =>
+            issue.Code == "NON_POSITIVE_CONTRACTED_TIME"));
+        Assert.IsTrue(preflight.Issues.Any(issue =>
+            issue.Code == "EMPLOYEE_UNAVAILABLE_FOR_PERIOD"));
     }
 
     [TestMethod]

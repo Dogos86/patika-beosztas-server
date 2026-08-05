@@ -14,18 +14,24 @@ export class ApiError extends Error {
   code: ApiErrorCode;
   status: number;
   fieldErrors?: Record<string, string[]>;
+  fieldErrorCodes?: Record<string, string[]>;
   serverCode?: string;
   constructor(
     code: ApiErrorCode,
     message: string,
     status: number,
-    extra?: { fieldErrors?: Record<string, string[]>; serverCode?: string },
+    extra?: {
+      fieldErrors?: Record<string, string[]>;
+      fieldErrorCodes?: Record<string, string[]>;
+      serverCode?: string;
+    },
   ) {
     super(message);
     this.name = "ApiError";
     this.code = code;
     this.status = status;
     this.fieldErrors = extra?.fieldErrors;
+    this.fieldErrorCodes = extra?.fieldErrorCodes;
     this.serverCode = extra?.serverCode;
   }
 }
@@ -40,7 +46,13 @@ export interface ProblemDetails {
    *  (`{ key, messages }` alakú), így a normalizáció mindkettőt kezeli. */
   errors?:
     | Record<string, string[]>
-    | Array<{ key?: string; field?: string; messages?: string[]; message?: string }>;
+    | Array<{
+        key?: string;
+        field?: string;
+        code?: string;
+        messages?: string[];
+        message?: string;
+      }>;
 }
 
 /** ProblemDetails.errors → normalizált `Record<string, string[]>`. */
@@ -61,6 +73,19 @@ export function normalizeFieldErrors(
   return errors;
 }
 
+export function normalizeFieldErrorCodes(
+  errors: ProblemDetails["errors"],
+): Record<string, string[]> | undefined {
+  if (!Array.isArray(errors)) return undefined;
+  const out: Record<string, string[]> = {};
+  for (const item of errors) {
+    if (!item.code) continue;
+    const key = item.key ?? item.field ?? "_";
+    out[key] = [...(out[key] ?? []), item.code];
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 /** HTTP státusz → ApiError (Problem Details minta szerint). */
 export function mapErrorResponse(status: number, body: ProblemDetails | undefined): ApiError {
   const message = body?.detail ?? body?.title ?? "Ismeretlen hiba";
@@ -79,6 +104,7 @@ export function mapErrorResponse(status: number, body: ProblemDetails | undefine
       }
       return new ApiError("VALIDATION", message, 400, {
         fieldErrors: normalizeFieldErrors(body?.errors),
+        fieldErrorCodes: normalizeFieldErrorCodes(body?.errors),
         serverCode,
       });
     case 403:
@@ -105,6 +131,7 @@ export function mapErrorResponse(status: number, body: ProblemDetails | undefine
     case 422:
       return new ApiError("VALIDATION", message, 422, {
         fieldErrors: normalizeFieldErrors(body?.errors),
+        fieldErrorCodes: normalizeFieldErrorCodes(body?.errors),
         serverCode,
       });
     default:

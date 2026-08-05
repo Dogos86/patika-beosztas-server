@@ -274,7 +274,8 @@ public static class ScheduleGenerationEndpoints
         var build = ScheduleCandidateBuilder.Build(snapshot, hash);
         return ScheduleGenerationDiagnostics.Analyze(
             snapshot,
-            build.OptimizerInput.Candidates.Count);
+            build.OptimizerInput.Candidates.Count,
+            build.OptimizerInput.Candidates);
     }
 
     private static ScheduleGenerationPreflightResponse MapPreflight(
@@ -300,7 +301,26 @@ public static class ScheduleGenerationEndpoints
                 issue.Code,
                 issue.Severity,
                 issue.Message,
-                issue.SettingsPath)).ToArray());
+                issue.SettingsPath)).ToArray(),
+            result.Locations.Select(location => new ScheduleGenerationLocationCheckResponse(
+                location.LocationId,
+                location.LocationName,
+                location.IsActive,
+                location.HasOpeningHours,
+                location.HasApplicableShiftTemplate,
+                location.HasCoverageRequirement)).ToArray(),
+            result.Employees.Select(employee => new ScheduleGenerationEmployeeCheckResponse(
+                employee.EmployeeId,
+                employee.EmployeeDisplayName,
+                employee.IsActive,
+                employee.IsSchedulable,
+                employee.IncludeInAutoFill,
+                employee.HasLocationAssignment,
+                employee.HasWorkProfile,
+                employee.HasPositiveContractedTime,
+                employee.HasCapability,
+                employee.HasBlockingAbsenceOrUnavailable,
+                employee.CandidateOptionCount)).ToArray());
     }
 
     private static async Task<IResult> GetAsync(

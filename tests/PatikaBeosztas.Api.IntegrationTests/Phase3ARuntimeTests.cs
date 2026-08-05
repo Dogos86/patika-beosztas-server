@@ -830,7 +830,10 @@ public sealed class Phase3ARuntimeTests
             Id = Guid.NewGuid(),
             OrganizationId = IntegrationTestData.OrganizationId,
             EmployeeId = employeeId,
-            ContractedMonthlyMinutes = 0,
+            // Pozitív határérték: a preflight elfogadja, miközben az egynapos
+            // golden lifecycle továbbra is csak a lefedettséghez szükséges
+            // egy műszakot optimalizálja.
+            ContractedMonthlyMinutes = 1,
             StandardShiftMinutes = 480,
             MinimumShiftMinutes = 240,
             MaximumRegularShiftMinutes = 480,
