@@ -31,7 +31,7 @@ ENV NODE_ENV=production \
 WORKDIR /app
 
 COPY --from=build --chown=node:node /source/frontend/.output /app/frontend
-COPY --chown=node:node frontend/gateway.mjs /app/gateway.mjs
+COPY --chown=node:node frontend/gateway*.mjs /app/
 
 USER node
 
